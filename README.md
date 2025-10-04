@@ -50,70 +50,72 @@ For the complete experience with all reasoning variants matching the official Co
         ]
       },
       "models": {
-        "GPT 5 Codex Low (ChatGPT Subscription)": {
-          "id": "gpt-5-codex",
+        "gpt-5-codex-low-oauth": {
+          "name": "GPT-5 Codex Low (OAuth)",
           "options": {
             "reasoningEffort": "low",
             "reasoningSummary": "auto",
             "textVerbosity": "medium"
           }
         },
-        "GPT 5 Codex Medium (ChatGPT Subscription)": {
-          "id": "gpt-5-codex",
+        "gpt-5-codex-medium-oauth": {
+          "name": "GPT-5 Codex Medium (OAuth)",
           "options": {
             "reasoningEffort": "medium",
             "reasoningSummary": "auto",
             "textVerbosity": "medium"
           }
         },
-        "GPT 5 Codex High (ChatGPT Subscription)": {
-          "id": "gpt-5-codex",
+        "gpt-5-codex-high-oauth": {
+          "name": "GPT-5 Codex High (OAuth)",
           "options": {
             "reasoningEffort": "high",
             "reasoningSummary": "detailed",
             "textVerbosity": "medium"
           }
         },
-        "GPT 5 Minimal (ChatGPT Subscription)": {
-          "id": "gpt-5",
+        "gpt-5-minimal-oauth": {
+          "name": "GPT-5 Minimal (OAuth)",
           "options": {
             "reasoningEffort": "minimal",
             "reasoningSummary": "auto",
             "textVerbosity": "low"
           }
         },
-        "GPT 5 Low (ChatGPT Subscription)": {
-          "id": "gpt-5",
+        "gpt-5-low-oauth": {
+          "name": "GPT-5 Low (OAuth)",
           "options": {
             "reasoningEffort": "low",
             "reasoningSummary": "auto",
             "textVerbosity": "low"
           }
         },
-        "GPT 5 Medium (ChatGPT Subscription)": {
-          "id": "gpt-5",
+        "gpt-5-medium-oauth": {
+          "name": "GPT-5 Medium (OAuth)",
           "options": {
             "reasoningEffort": "medium",
             "reasoningSummary": "auto",
             "textVerbosity": "medium"
           }
         },
-        "GPT 5 High (ChatGPT Subscription)": {
-          "id": "gpt-5",
+        "gpt-5-high-oauth": {
+          "name": "GPT-5 High (OAuth)",
           "options": {
             "reasoningEffort": "high",
             "reasoningSummary": "detailed",
             "textVerbosity": "high"
           }
         },
-        "gpt-5-mini": {
+        "gpt-5-mini-oauth": {
+          "name": "GPT-5 Mini (OAuth)",
           "options": {
             "reasoningEffort": "low",
             "reasoningSummary": "auto",
             "textVerbosity": "low"
           }
         },
-        "gpt-5-nano": {
+        "gpt-5-nano-oauth": {
+          "name": "GPT-5 Nano (OAuth)",
           "options": {
             "reasoningEffort": "minimal",
             "reasoningSummary": "auto",
@@ -130,13 +132,11 @@ For the complete experience with all reasoning variants matching the official Co
    **Project config**: `<project>/.opencode.json`
 
    This gives you 9 model variants with different reasoning levels:
-   - **GPT 5 Codex** (Low/Medium/High)
-   - **GPT 5** (Minimal/Low/Medium/High)
-   - **gpt-5-mini** and **gpt-5-nano** (these are to support the default opencode model selector)
+   - **GPT-5 Codex** (Low/Medium/High)
+   - **GPT-5** (Minimal/Low/Medium/High)
+   - **GPT-5 Mini** and **GPT-5 Nano**
 
-   All appear in the opencode model selector with optimal settings for each reasoning level.
-
-   > **Optional**: You can remove `(ChatGPT Subscription)` from model names if you prefer cleaner labels in the model selector.
+   All appear in the opencode model selector with optimal settings for each reasoning level. The `(OAuth)` suffix helps distinguish these from API key-based models when searching.
 
 #### Alternative: Minimal Configuration
 
@@ -156,9 +156,14 @@ For a simpler setup (uses plugin defaults: medium reasoning, auto summaries):
 
 2. **That's it!** opencode will auto-install the plugin on first run.
 
-   > **Note on Updates**: Sometimes opencode does NOT automatically update plugins to new versions. To update:
-   > - Pin to a specific version: `"opencode-openai-codex-auth@1.0.4"` and change the number when updating
-   > - Or clear the plugin cache: `rm -rf ~/.cache/opencode/node_modules/opencode-openai-codex-auth`
+   > **Note on Updates**
+   >
+   > opencode may not always auto-update plugins. Use one of these safe methods:
+   > - **Recommended**: Pin the plugin version in your config, e.g. `"opencode-openai-codex-auth@2.1.0"`. Bump the version number to force an update.
+   > - **Alternative (local)**: Temporarily switch to a local path (`"file:///absolute/path/to/opencode-openai-codex-auth"`), run opencode once, then switch back to the desired version to force a fresh download.
+   > - **Alternative (cache)**: Remove the entire opencode cache directory `rm -rf ~/.cache/opencode` and run opencode again. This clears all cached plugins and forces reinstallation.
+   >
+   > ⚠️ **Warning**: Do NOT delete individual plugin subfolders inside `~/.cache/opencode/node_modules` as it can leave the cache in an inconsistent state and prevent opencode from starting.
    >
    > Check [releases](https://github.com/numman-ali/opencode-openai-codex-auth/releases) for the latest version.
 
@@ -197,12 +202,12 @@ If using the full configuration, select from the model picker in opencode, or sp
 
 ```bash
 # Use different reasoning levels for gpt-5-codex
-opencode run "simple task" --model="openai/GPT 5 Codex Low (ChatGPT Subscription)"
-opencode run "complex task" --model="openai/GPT 5 Codex High (ChatGPT Subscription)"
+opencode run "simple task" --model="openai/gpt-5-codex-low-oauth"
+opencode run "complex task" --model="openai/gpt-5-codex-high-oauth"
 
 # Use different reasoning levels for gpt-5
-opencode run "quick question" --model="openai/GPT 5 Minimal (ChatGPT Subscription)"
-opencode run "deep analysis" --model="openai/GPT 5 High (ChatGPT Subscription)"
+opencode run "quick question" --model="openai/gpt-5-minimal-oauth"
+opencode run "deep analysis" --model="openai/gpt-5-high-oauth"
 
 # Or with minimal config (uses defaults)
 opencode run "create a hello world file" --model=openai/gpt-5-codex
@@ -215,15 +220,15 @@ When using [`config/full-opencode.json`](./config/full-opencode.json), you get t
 
 | Model Variant | Reasoning Effort | Best For |
 |---------------|-----------------|----------|
-| **GPT 5 Codex Low** | Low | Fast code generation |
-| **GPT 5 Codex Medium** | Medium | Balanced code tasks |
-| **GPT 5 Codex High** | High | Complex code & tools |
-| **GPT 5 Minimal** | Minimal | Quick answers, simple tasks |
-| **GPT 5 Low** | Low | Faster responses with light reasoning |
-| **GPT 5 Medium** | Medium | Balanced general-purpose tasks |
-| **GPT 5 High** | High | Deep reasoning, complex problems |
-| **gpt-5-mini** | Low | Lightweight tasks |
-| **gpt-5-nano** | Minimal | Maximum speed |
+| **GPT-5 Codex Low (OAuth)** | Low | Fast code generation |
+| **GPT-5 Codex Medium (OAuth)** | Medium | Balanced code tasks |
+| **GPT-5 Codex High (OAuth)** | High | Complex code & tools |
+| **GPT-5 Minimal (OAuth)** | Minimal | Quick answers, simple tasks |
+| **GPT-5 Low (OAuth)** | Low | Faster responses with light reasoning |
+| **GPT-5 Medium (OAuth)** | Medium | Balanced general-purpose tasks |
+| **GPT-5 High (OAuth)** | High | Deep reasoning, complex problems |
+| **GPT-5 Mini (OAuth)** | Low | Lightweight tasks |
+| **GPT-5 Nano (OAuth)** | Minimal | Maximum speed |
 
 All accessed via your ChatGPT Plus/Pro subscription.
 
@@ -259,6 +264,26 @@ See [Installation](#installation) for setup instructions.
 ### Custom Configuration
 
 If you want to customize settings yourself, you can configure options at provider or model level.
+
+> **⚠️ Important: Model Configuration Format**
+>
+> When defining custom model variants, the **object key is the model ID** (used internally) and the **`name` field is the display name** (shown in the model selector). Do NOT use an `id` field inside the model configuration.
+>
+> **Correct format:**
+> ```json
+> "gpt-5-codex-low-oauth": {
+>   "name": "GPT-5 Codex Low (OAuth)",
+>   "options": { ... }
+> }
+> ```
+>
+> **Incorrect format (will cause model selection issues):**
+> ```json
+> "GPT-5 Codex Low (OAuth)": {
+>   "id": "gpt-5-codex",
+>   "options": { ... }
+> }
+> ```
 
 #### Available Settings
 
@@ -304,14 +329,14 @@ Create your own named variants in the model selector:
   "provider": {
     "openai": {
       "models": {
-        "My Fast Codex": {
-          "id": "gpt-5-codex",
+        "gpt-5-codex-fast-oauth": {
+          "name": "Fast Codex (OAuth)",
           "options": {
             "reasoningEffort": "low"
           }
         },
-        "My Smart GPT-5": {
-          "id": "gpt-5",
+        "gpt-5-smart-oauth": {
+          "name": "Smart GPT-5 (OAuth)",
           "options": {
             "reasoningEffort": "high",
             "textVerbosity": "high"
@@ -323,7 +348,7 @@ Create your own named variants in the model selector:
 }
 ```
 
-The `id` field determines which base model is used (`gpt-5-codex` or `gpt-5`), and the name is what appears in the model selector.
+The model key (e.g., `gpt-5-codex-fast-oauth`) is the model ID used internally, and the `name` field is what appears in the model selector. The plugin automatically detects whether to use `gpt-5-codex` or `gpt-5` based on the key prefix.
 
 ### Configuration Files
 
