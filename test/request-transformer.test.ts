@@ -51,26 +51,32 @@ describe('Request Transformer Module', () => {
 			expect(result).toEqual(input);
 		});
 
-		it('should remove items with rs_ IDs', async () => {
+		it('should strip server-generated IDs but keep content', async () => {
 			const input: InputItem[] = [
 				{ id: 'rs_123', type: 'message', role: 'user', content: 'hello' },
 				{ id: 'msg_456', type: 'message', role: 'user', content: 'world' },
 			];
 			const result = filterInput(input);
-			expect(result).toHaveLength(1);
-			expect(result![0].id).toBe('msg_456');
+			expect(result).toHaveLength(2);
+			expect((result![0]).id).toBeUndefined();
+			expect((result![1]).id).toBeUndefined();
+			expect(result![0].content).toBe('hello');
+			expect(result![1].content).toBe('world');
 		});
 
-		it('should handle mixed items', async () => {
+		it('should handle mixed items by dropping ids but preserving order/content', async () => {
 			const input: InputItem[] = [
 				{ type: 'message', role: 'user', content: '1' },
 				{ id: 'rs_stored', type: 'message', role: 'assistant', content: '2' },
 				{ id: 'msg_123', type: 'message', role: 'user', content: '3' },
 			];
 			const result = filterInput(input);
-			expect(result).toHaveLength(2);
+			expect(result).toHaveLength(3);
 			expect(result![0].content).toBe('1');
-			expect(result![1].content).toBe('3');
+			expect(result![1].content).toBe('2');
+			expect(result![2].content).toBe('3');
+			expect((result![1]).id).toBeUndefined();
+			expect((result![2]).id).toBeUndefined();
 		});
 
 		it('should return undefined for undefined input', async () => {
@@ -410,7 +416,7 @@ describe('Request Transformer Module', () => {
 			expect(result.include).toEqual(['custom_field', 'reasoning.encrypted_content']);
 		});
 
-		it('should filter input array', async () => {
+		it('should filter input array by removing item_references and stripping ids', async () => {
 			const body: RequestBody = {
 				model: 'gpt-5',
 				input: [
@@ -419,8 +425,12 @@ describe('Request Transformer Module', () => {
 				],
 			};
 			const result = await transformRequestBody(body, codexInstructions);
-			expect(result.input).toHaveLength(1);
-			expect(result.input![0].content).toBe('new');
+			expect(result.input).toHaveLength(2);
+			expect(result.input![0].role).toBe('assistant');
+			expect(result.input![0].content).toBe('old');
+			expect((result.input![0]).id).toBeUndefined();
+			expect(result.input![1].role).toBe('user');
+			expect(result.input![1].content).toBe('new');
 		});
 
 		it('should add tool remap message when tools present', async () => {

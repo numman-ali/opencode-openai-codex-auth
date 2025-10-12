@@ -92,18 +92,15 @@ export function getReasoningConfig(
  * @returns Filtered input array
  */
 export function filterInput(
-	input: InputItem[] | undefined,
+  input: InputItem[] | undefined,
 ): InputItem[] | undefined {
-	if (!Array.isArray(input)) return input;
+  if (!Array.isArray(input)) return input;
 
-	return input.filter((item) => {
-		// Keep items without IDs (new messages)
-		if (!item.id) return true;
-		// Remove items with response/result IDs (rs_*)
-		if (item.id?.startsWith("rs_")) return false;
-		return true;
-	});
+  return input
+    .filter((item) => item.type !== "item_reference")
+    .map(({ id, ...rest }) => rest);
 }
+
 
 /**
  * Check if an input item is the OpenCode system prompt
