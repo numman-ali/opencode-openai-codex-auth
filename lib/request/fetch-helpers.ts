@@ -106,11 +106,12 @@ export function rewriteUrlForCodex(url: string): string {
  * @returns Transformed body and updated init, or undefined if no body
  */
 export async function transformRequestForCodex(
-	init: RequestInit | undefined,
-	url: string,
-	codexInstructions: string,
-	userConfig: UserConfig,
-	codexMode = true,
+    init: RequestInit | undefined,
+    url: string,
+    codexInstructions: string,
+    userConfig: UserConfig,
+    codexMode = true,
+    promptCacheKey?: string,
 ): Promise<{ body: RequestBody; updatedInit: RequestInit } | undefined> {
 	if (!init?.body) return undefined;
 
@@ -131,12 +132,13 @@ export async function transformRequestForCodex(
 		});
 
 		// Transform request body
-		const transformedBody = await transformRequestBody(
-			body,
-			codexInstructions,
-			userConfig,
-			codexMode,
-		);
+        const transformedBody = await transformRequestBody(
+            body,
+            codexInstructions,
+            userConfig,
+            codexMode,
+            promptCacheKey,
+        );
 
 		// Log transformed request
 		logRequest(LOG_STAGES.AFTER_TRANSFORM, {
@@ -170,9 +172,10 @@ export async function transformRequestForCodex(
  * @returns Headers object with all required Codex headers
  */
 export function createCodexHeaders(
-	init: RequestInit | undefined,
-	accountId: string,
-	accessToken: string,
+    init: RequestInit | undefined,
+    accountId: string,
+    accessToken: string,
+    sessionOrConversationId?: string,
 ): Headers {
 	const headers = new Headers(init?.headers ?? {});
 	headers.delete("x-api-key"); // Remove any existing API key
@@ -180,7 +183,9 @@ export function createCodexHeaders(
 	headers.set(OPENAI_HEADERS.ACCOUNT_ID, accountId);
 	headers.set(OPENAI_HEADERS.BETA, OPENAI_HEADER_VALUES.BETA_RESPONSES);
 	headers.set(OPENAI_HEADERS.ORIGINATOR, OPENAI_HEADER_VALUES.ORIGINATOR_CODEX);
-	headers.set(OPENAI_HEADERS.SESSION_ID, crypto.randomUUID());
+    const sid = sessionOrConversationId || (globalThis as any).crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
+    headers.set(OPENAI_HEADERS.SESSION_ID, sid);
+    headers.set(OPENAI_HEADERS.CONVERSATION_ID, sid);
 	return headers;
 }
 

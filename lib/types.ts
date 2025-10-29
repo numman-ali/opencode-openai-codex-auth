@@ -133,6 +133,11 @@ export interface RequestBody {
 		verbosity?: "low" | "medium" | "high";
 	};
 	include?: string[];
+    /**
+     * Prompt cache key used by Codex backend to enable prefix token caching across turns.
+     * Should remain stable for the lifetime of a conversation/session.
+     */
+    prompt_cache_key?: string;
 	max_output_tokens?: number;
 	max_completion_tokens?: number;
 	[key: string]: unknown;

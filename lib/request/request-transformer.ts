@@ -279,10 +279,11 @@ export function addToolRemapMessage(
  * @returns Transformed request body
  */
 export async function transformRequestBody(
-	body: RequestBody,
-	codexInstructions: string,
-	userConfig: UserConfig = { global: {}, models: {} },
-	codexMode = true,
+    body: RequestBody,
+    codexInstructions: string,
+    userConfig: UserConfig = { global: {}, models: {} },
+    codexMode = true,
+    promptCacheKey?: string,
 ): Promise<RequestBody> {
 	const originalModel = body.model;
 	const normalizedModel = normalizeModel(body.model);
@@ -306,6 +307,11 @@ export async function transformRequestBody(
 	body.store = false;
 	body.stream = true;
 	body.instructions = codexInstructions;
+
+	// Stable prompt cache key to enable prefix token caching across turns
+	if (promptCacheKey) {
+		(body as any).prompt_cache_key = promptCacheKey;
+	}
 
 	// Filter and transform input
 	if (body.input && Array.isArray(body.input)) {

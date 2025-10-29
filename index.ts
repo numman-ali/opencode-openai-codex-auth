@@ -117,6 +117,9 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 				// Fetch Codex system instructions (cached with ETag for efficiency)
 				const CODEX_INSTRUCTIONS = await getCodexInstructions();
 
+				// Generate a stable conversation/session id for prompt caching during this loader's lifetime
+				const stableConversationId = (globalThis as any).crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
+
 				// Return SDK configuration
 				return {
 					apiKey: DUMMY_API_KEY,
@@ -150,14 +153,21 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 						const originalUrl = extractRequestUrl(input);
 						const url = rewriteUrlForCodex(originalUrl);
 
-						// Step 3: Transform request body with Codex instructions
-						const transformation = await transformRequestForCodex(init, url, CODEX_INSTRUCTIONS, userConfig, codexMode);
+						// Step 3: Transform request body with Codex instructions and stable prompt cache key
+						const transformation = await transformRequestForCodex(
+							init,
+							url,
+							CODEX_INSTRUCTIONS,
+							userConfig,
+							codexMode,
+							stableConversationId,
+						);
 						const hasTools = transformation?.body.tools !== undefined;
 						const requestInit = transformation?.updatedInit ?? init;
 
-						// Step 4: Create headers with OAuth and ChatGPT account info
+						// Step 4: Create headers with OAuth and ChatGPT account info + stable session/conversation id
 						const accessToken = currentAuth.type === "oauth" ? currentAuth.access : "";
-						const headers = createCodexHeaders(requestInit, accountId, accessToken);
+						const headers = createCodexHeaders(requestInit, accountId, accessToken, stableConversationId);
 
 						// Step 5: Make request to Codex API
 						const response = await fetch(url, {
