@@ -8,10 +8,17 @@ import {
 	filterOpenCodeSystemPrompts,
 	addCodexBridgeMessage,
 	transformRequestBody,
+	type ConversationMemory,
 } from '../lib/request/request-transformer.js';
 import { TOOL_REMAP_MESSAGE } from '../lib/prompts/codex.js';
 import { CODEX_OPENCODE_BRIDGE } from '../lib/prompts/codex-opencode-bridge.js';
 import type { RequestBody, UserConfig, InputItem } from '../lib/types.js';
+
+const createConversationMemory = (): ConversationMemory => ({
+	entries: new Map(),
+	payloads: new Map(),
+	usage: new Map(),
+});
 
 describe('Request Transformer Module', () => {
 	describe('normalizeModel', () => {
@@ -298,6 +305,84 @@ describe('Request Transformer Module', () => {
 			const input: InputItem[] = [];
 			const result = filterInput(input);
 			expect(result).toEqual([]);
+		});
+
+		it('should retain function_call_output when matching call_id is present', async () => {
+			const input: InputItem[] = [
+				{
+					type: 'function_call',
+					call_id: 'call_123',
+					name: 'testTool',
+					arguments: '{}',
+				},
+				{
+					type: 'function_call_output',
+					call_id: 'call_123',
+					output: 'ok',
+				},
+			];
+
+			const result = filterInput(input)!;
+
+			expect(result).toHaveLength(2);
+			expect(result[0].type).toBe('function_call');
+			expect((result[0] as any).call_id).toBe('call_123');
+			expect(result[1].type).toBe('function_call_output');
+			expect((result[1] as any).call_id).toBe('call_123');
+		});
+
+		it('should preserve call_id copied from id when call_id missing', async () => {
+			const input: InputItem[] = [
+				{
+					id: 'legacy_call',
+					type: 'function_call',
+					name: 'legacyTool',
+					arguments: '{}',
+				},
+				{
+					type: 'function_call_output',
+					call_id: 'legacy_call',
+					output: 'done',
+				},
+			];
+
+			const result = filterInput(input)!;
+
+			expect(result).toHaveLength(2);
+			expect((result[0] as any).call_id).toBe('legacy_call');
+			expect(result[0]).not.toHaveProperty('id');
+		});
+
+		it('should restore item_reference using cached item', async () => {
+			const memory = createConversationMemory();
+			filterInput([
+				{ id: 'rs_cached', type: 'message', role: 'assistant', content: 'cached' },
+			], memory);
+			const previousLastUsed = memory.entries.get('rs_cached')?.lastUsed ?? 0;
+			const input: InputItem[] = [
+				{ type: 'item_reference', id: 'rs_cached' },
+			];
+
+			const result = filterInput(input, memory)!;
+
+			expect(result).toHaveLength(1);
+			expect(result[0]).toEqual({ type: 'message', role: 'assistant', content: 'cached', call_id: 'rs_cached' });
+			expect(memory.entries.get('rs_cached')?.lastUsed).toBeGreaterThanOrEqual(previousLastUsed);
+		});
+
+		it('should retain cached entries when rehydrating baseline without references', async () => {
+			const memory = createConversationMemory();
+			filterInput([
+				{ id: 'rs_old', type: 'message', role: 'assistant', content: 'old' },
+			], memory);
+			expect(memory.entries.has('rs_old')).toBe(true);
+
+			filterInput([
+				{ id: 'rs_new', type: 'message', role: 'user', content: 'hi' },
+			], memory);
+
+			expect(memory.entries.has('rs_old')).toBe(true);
+			expect(memory.entries.has('rs_new')).toBe(true);
 		});
 	});
 

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { TOOL_REMAP_MESSAGE } from "../prompts/codex.js";
 import { CODEX_OPENCODE_BRIDGE } from "../prompts/codex-opencode-bridge.js";
 import { getOpenCodeCodexPrompt } from "../prompts/opencode-codex.js";
@@ -9,6 +10,272 @@ import type {
 	RequestBody,
 	InputItem,
 } from "../types.js";
+
+function cloneInputItem<T extends Record<string, unknown>>(item: T): T {
+	return JSON.parse(JSON.stringify(item)) as T;
+}
+
+function stableStringify(value: unknown): string {
+	if (value === null || typeof value !== "object") {
+		return JSON.stringify(value);
+	}
+
+	if (Array.isArray(value)) {
+		return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+	}
+
+	const entries = Object.keys(value as Record<string, unknown>)
+		.sort()
+		.map((key) => `${JSON.stringify(key)}:${stableStringify((value as Record<string, unknown>)[key])}`);
+
+	return `{${entries.join(",")}}`;
+}
+
+function computePayloadHash(item: InputItem): string {
+	const canonical = stableStringify(item);
+	return createHash("sha1").update(canonical).digest("hex");
+}
+
+export interface ConversationCacheEntry {
+	hash: string;
+	callId?: string;
+	lastUsed: number;
+}
+
+export interface ConversationMemory {
+	entries: Map<string, ConversationCacheEntry>;
+	payloads: Map<string, InputItem>;
+	usage: Map<string, number>;
+}
+
+const CONVERSATION_ENTRY_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+const CONVERSATION_MAX_ENTRIES = 1000;
+
+function decrementUsage(memory: ConversationMemory, hash: string): void {
+	const current = memory.usage.get(hash) ?? 0;
+	if (current <= 1) {
+		memory.usage.delete(hash);
+		memory.payloads.delete(hash);
+	} else {
+		memory.usage.set(hash, current - 1);
+	}
+}
+
+function incrementUsage(memory: ConversationMemory, hash: string, payload: InputItem): void {
+	const current = memory.usage.get(hash) ?? 0;
+	if (current === 0) {
+		memory.payloads.set(hash, payload);
+	}
+	memory.usage.set(hash, current + 1);
+}
+
+function storeConversationEntry(
+	memory: ConversationMemory,
+	id: string,
+	item: InputItem,
+	callId: string | undefined,
+	timestamp: number,
+): void {
+	const sanitized = cloneInputItem(item);
+	const hash = computePayloadHash(sanitized);
+	const existing = memory.entries.get(id);
+
+	if (existing && existing.hash === hash) {
+		existing.lastUsed = timestamp;
+		if (callId && !existing.callId) {
+			existing.callId = callId;
+		}
+		return;
+	}
+
+	if (existing) {
+		decrementUsage(memory, existing.hash);
+	}
+
+	incrementUsage(memory, hash, sanitized);
+	memory.entries.set(id, { hash, callId, lastUsed: timestamp });
+}
+
+function removeConversationEntry(memory: ConversationMemory, id: string): void {
+	const existing = memory.entries.get(id);
+	if (!existing) return;
+	memory.entries.delete(id);
+	decrementUsage(memory, existing.hash);
+}
+
+function pruneConversationMemory(
+	memory: ConversationMemory,
+	timestamp: number,
+	protectedIds: Set<string>,
+): void {
+	for (const [id, entry] of memory.entries.entries()) {
+		if (timestamp - entry.lastUsed > CONVERSATION_ENTRY_TTL_MS && !protectedIds.has(id)) {
+			removeConversationEntry(memory, id);
+		}
+	}
+
+	if (memory.entries.size <= CONVERSATION_MAX_ENTRIES) {
+		return;
+	}
+
+	const candidates = Array.from(memory.entries.entries())
+		.filter(([id]) => !protectedIds.has(id))
+		.sort((a, b) => a[1].lastUsed - b[1].lastUsed);
+
+	for (const [id] of candidates) {
+		if (memory.entries.size <= CONVERSATION_MAX_ENTRIES) break;
+		removeConversationEntry(memory, id);
+	}
+
+	if (memory.entries.size > CONVERSATION_MAX_ENTRIES) {
+		const fallback = Array.from(memory.entries.entries())
+			.sort((a, b) => a[1].lastUsed - b[1].lastUsed);
+		for (const [id] of fallback) {
+			if (memory.entries.size <= CONVERSATION_MAX_ENTRIES) break;
+			removeConversationEntry(memory, id);
+		}
+	}
+}
+/**
+ * Normalize incoming tools into the exact JSON shape the Codex CLI emits.
+ * Handles strings, CLI-style objects, AI SDK nested objects, and boolean maps.
+ */
+function normalizeToolsForResponses(tools: unknown): any[] | undefined {
+	if (!tools) return undefined;
+
+	const defaultFunctionParameters = {
+		type: "object",
+		properties: {},
+		additionalProperties: true,
+	};
+
+	const defaultFreeformFormat = {
+		type: "json_schema/v1",
+		syntax: "json",
+		definition: "{}",
+	};
+
+	const makeFunctionTool = (
+		name: unknown,
+		description?: unknown,
+		parameters?: unknown,
+		strict?: unknown,
+	) => {
+		if (typeof name !== "string" || !name.trim()) return undefined;
+		const tool: Record<string, unknown> = {
+			type: "function",
+			name,
+			strict: typeof strict === "boolean" ? strict : false,
+			parameters:
+				parameters && typeof parameters === "object"
+					? parameters
+					: defaultFunctionParameters,
+		};
+		if (typeof description === "string" && description.trim()) {
+			tool.description = description;
+		}
+		return tool;
+	};
+
+	const makeFreeformTool = (
+		name: unknown,
+		description?: unknown,
+		format?: unknown,
+	) => {
+		if (typeof name !== "string" || !name.trim()) return undefined;
+		const tool: Record<string, unknown> = {
+			type: "custom",
+			name,
+			format:
+				format && typeof format === "object"
+					? format
+					: defaultFreeformFormat,
+		};
+		if (typeof description === "string" && description.trim()) {
+			tool.description = description;
+		}
+		return tool;
+	};
+
+	const convertTool = (candidate: unknown): any | undefined => {
+		if (!candidate) return undefined;
+		if (typeof candidate === "string") {
+			return makeFunctionTool(candidate);
+		}
+		if (typeof candidate !== "object") {
+			return undefined;
+		}
+		const obj = candidate as Record<string, unknown>;
+		const nestedFn =
+			obj.function && typeof obj.function === "object"
+				? (obj.function as Record<string, unknown>)
+				: undefined;
+		const type = typeof obj.type === "string" ? obj.type : undefined;
+		if (type === "function") {
+			return makeFunctionTool(
+				nestedFn?.name ?? obj.name,
+				nestedFn?.description ?? obj.description,
+				nestedFn?.parameters ?? obj.parameters,
+				nestedFn?.strict ?? obj.strict,
+			);
+		}
+		if (type === "custom") {
+			return makeFreeformTool(
+				nestedFn?.name ?? obj.name,
+				nestedFn?.description ?? obj.description,
+				nestedFn?.format ?? obj.format,
+			);
+		}
+		if (type === "local_shell" || type === "web_search") {
+			// These variants do not require additional fields.
+			return { type };
+		}
+		if (typeof obj.name === "string") {
+			return makeFunctionTool(obj.name, obj.description, obj.parameters, obj.strict);
+		}
+		if (nestedFn?.name) {
+			return makeFunctionTool(
+				nestedFn.name,
+				nestedFn.description,
+				nestedFn.parameters,
+				nestedFn.strict,
+			);
+		}
+		return undefined;
+	};
+
+	if (Array.isArray(tools)) {
+		return tools.map(convertTool).filter(Boolean) as any[];
+	}
+
+	if (typeof tools === "object") {
+		return Object.entries(tools as Record<string, unknown>)
+			.map(([name, value]) => {
+				if (value && typeof value === "object") {
+					const record = value as Record<string, unknown>;
+					const enabled = record.enabled ?? record.use ?? record.allow ?? true;
+					if (!enabled) return undefined;
+					if (record.type === "custom") {
+						return makeFreeformTool(name, record.description, record.format);
+					}
+					return makeFunctionTool(
+						name,
+						record.description,
+						record.parameters,
+						record.strict,
+					);
+				}
+				if (value === true) {
+					return makeFunctionTool(name);
+				}
+				return undefined;
+			})
+			.filter(Boolean) as any[];
+	}
+
+	return undefined;
+}
+
 
 /**
  * Normalize model name to Codex-supported variants
@@ -113,25 +380,137 @@ export function getReasoningConfig(
  */
 export function filterInput(
 	input: InputItem[] | undefined,
+	conversationMemory?: ConversationMemory,
 ): InputItem[] | undefined {
 	if (!Array.isArray(input)) return input;
 
-	return input
-		.filter((item) => {
-			// Remove AI SDK constructs not supported by Codex API
-			if (item.type === "item_reference") {
-				return false; // AI SDK only - references server state
+	const seenFunctionCalls = new Set<string>();
+	const result: InputItem[] = [];
+	const now = Date.now();
+	const touchedIds = new Set<string>();
+	const hasReferences = input.some((item) => item.type === "item_reference");
+
+	const getCallId = (record: Record<string, unknown>): string | undefined => {
+		const callId = record.call_id;
+		if (typeof callId === "string" && callId.length > 0) {
+			return callId;
+		}
+		const id = record.id;
+		if (typeof id === "string" && id.length > 0) {
+			return id;
+		}
+		return undefined;
+	};
+
+	for (const original of input) {
+		if (original.type === "item_reference") {
+			const referenceId = typeof original.id === "string" ? original.id : undefined;
+			if (referenceId && conversationMemory) {
+				const cacheEntry = conversationMemory.entries.get(referenceId);
+				if (cacheEntry) {
+					const payload = conversationMemory.payloads.get(cacheEntry.hash);
+					if (payload) {
+						const restored = cloneInputItem(payload);
+						const restoredCallId = cacheEntry.callId ?? getCallId(restored as Record<string, unknown>);
+						if (restored.type === "function_call" && restoredCallId) {
+							seenFunctionCalls.add(restoredCallId);
+						}
+						cacheEntry.lastUsed = now;
+						if (restoredCallId && !cacheEntry.callId) {
+							cacheEntry.callId = restoredCallId;
+						}
+						result.push(restored);
+						touchedIds.add(referenceId);
+						continue;
+					}
+				}
 			}
-			return true; // Keep all other items
-		})
-		.map((item) => {
-			// Strip IDs from all items (Codex API stateless mode)
-			if (item.id) {
-				const { id, ...itemWithoutId } = item;
-				return itemWithoutId as InputItem;
+			logWarn(
+				`Dropped item_reference with no cached source "${referenceId ?? ""}"`,
+			);
+			continue;
+		}
+
+		const itemId = typeof original.id === "string" && original.id.length > 0 ? original.id : undefined;
+		const originalCallId = getCallId(original as Record<string, unknown>);
+		const item = cloneInputItem(original);
+
+		if ("id" in item) {
+			delete (item as Record<string, unknown>).id;
+		}
+		if (originalCallId) {
+			const mutableItem = item as Record<string, unknown>;
+			if (typeof mutableItem.call_id !== "string") {
+				mutableItem.call_id = originalCallId;
 			}
-			return item;
-		});
+		}
+
+		if (item.type === "function_call") {
+			if (originalCallId) {
+				seenFunctionCalls.add(originalCallId);
+			}
+			result.push(item);
+			if (itemId && conversationMemory) {
+				storeConversationEntry(conversationMemory, itemId, item, originalCallId, now);
+				touchedIds.add(itemId);
+			}
+			continue;
+		}
+
+		if (item.type === "function_call_output") {
+			if (originalCallId && !seenFunctionCalls.has(originalCallId) && conversationMemory) {
+				// Attempt to rehydrate the missing function_call from memory by call_id
+				let restoredCall: InputItem | undefined;
+				let restoredEntryId: string | undefined;
+				for (const [eid, entry] of conversationMemory.entries.entries()) {
+					if (entry.callId === originalCallId) {
+						const payload = conversationMemory.payloads.get(entry.hash);
+						if (payload && payload.type === "function_call") {
+							restoredCall = cloneInputItem(payload);
+							restoredEntryId = eid;
+							entry.lastUsed = now;
+							break;
+						}
+					}
+				}
+				if (restoredCall) {
+					// Ensure call_id is present on the restored item
+					const mutableRestored = restoredCall as Record<string, unknown>;
+					if (typeof mutableRestored.call_id !== "string") {
+						mutableRestored.call_id = originalCallId;
+					}
+					seenFunctionCalls.add(originalCallId);
+					result.push(restoredCall);
+					if (restoredEntryId) touchedIds.add(restoredEntryId);
+				}
+			}
+
+			if (originalCallId && seenFunctionCalls.has(originalCallId)) {
+				result.push(item);
+				if (itemId && conversationMemory) {
+					storeConversationEntry(conversationMemory, itemId, item, originalCallId, now);
+					touchedIds.add(itemId);
+				}
+			} else {
+				logWarn(
+					`Dropped function_call_output with unmatched call_id "${originalCallId ?? ""}" for stateless request`,
+				);
+			}
+			continue;
+		}
+
+		result.push(item);
+		if (itemId && conversationMemory) {
+			storeConversationEntry(conversationMemory, itemId, item, originalCallId, now);
+			touchedIds.add(itemId);
+		}
+	}
+
+	if (conversationMemory) {
+		pruneConversationMemory(conversationMemory, now, touchedIds);
+	}
+
+	return result;
 }
 
 /**
@@ -279,11 +658,12 @@ export function addToolRemapMessage(
  * @returns Transformed request body
  */
 export async function transformRequestBody(
-    body: RequestBody,
-    codexInstructions: string,
-    userConfig: UserConfig = { global: {}, models: {} },
-    codexMode = true,
-    promptCacheKey?: string,
+	body: RequestBody,
+	codexInstructions: string,
+	userConfig: UserConfig = { global: {}, models: {} },
+	codexMode = true,
+	promptCacheKey?: string,
+	conversationMemory?: ConversationMemory,
 ): Promise<RequestBody> {
 	const originalModel = body.model;
 	const normalizedModel = normalizeModel(body.model);
@@ -313,6 +693,18 @@ export async function transformRequestBody(
 		(body as any).prompt_cache_key = promptCacheKey;
 	}
 
+	// Tool behavior parity with Codex CLI
+	if (body.tools) {
+		const normalizedTools = normalizeToolsForResponses(body.tools);
+		if (normalizedTools && normalizedTools.length > 0) {
+			(body as any).tools = normalizedTools;
+			(body as any).tool_choice = "auto";
+			const modelName = (body.model || "").toLowerCase();
+			const codexParallelDisabled = modelName.includes("gpt-5-codex");
+			(body as any).parallel_tool_calls = !codexParallelDisabled;
+		}
+	}
+
 	// Filter and transform input
 	if (body.input && Array.isArray(body.input)) {
 		// Debug: Log original input message IDs before filtering
@@ -321,7 +713,7 @@ export async function transformRequestBody(
 			logDebug(`Filtering ${originalIds.length} message IDs from input:`, originalIds);
 		}
 
-		body.input = filterInput(body.input);
+		body.input = filterInput(body.input, conversationMemory);
 
 		// Debug: Verify all IDs were removed
 		const remainingIds = (body.input || []).filter(item => item.id).map(item => item.id);

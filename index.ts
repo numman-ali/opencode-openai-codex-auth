@@ -39,8 +39,9 @@ import {
 	handleErrorResponse,
 	handleSuccessResponse,
 } from "./lib/request/fetch-helpers.js";
+import { type ConversationMemory } from "./lib/request/request-transformer.js";
 import { loadPluginConfig, getCodexMode } from "./lib/config.js";
-import type { UserConfig } from "./lib/types.js";
+import type { UserConfig, InputItem } from "./lib/types.js";
 import {
 	DUMMY_API_KEY,
 	CODEX_BASE_URL,
@@ -119,6 +120,11 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 
 				// Generate a stable conversation/session id for prompt caching during this loader's lifetime
 				const stableConversationId = (globalThis as any).crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
+				const conversationMemory: ConversationMemory = {
+					entries: new Map(),
+					payloads: new Map(),
+					usage: new Map(),
+				};
 
 				// Return SDK configuration
 				return {
@@ -161,6 +167,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 							userConfig,
 							codexMode,
 							stableConversationId,
+							conversationMemory,
 						);
 						const hasTools = transformation?.body.tools !== undefined;
 						const requestInit = transformation?.updatedInit ?? init;
@@ -188,7 +195,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 							return await handleErrorResponse(response);
 						}
 
-						return await handleSuccessResponse(response, hasTools);
+						return await handleSuccessResponse(response, hasTools, conversationMemory);
 					},
 				};
 			},

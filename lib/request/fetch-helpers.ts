@@ -7,7 +7,7 @@ import type { Auth } from "@opencode-ai/sdk";
 import type { OpencodeClient } from "@opencode-ai/sdk";
 import { refreshAccessToken } from "../auth/auth.js";
 import { logRequest } from "../logger.js";
-import { transformRequestBody } from "./request-transformer.js";
+import { transformRequestBody, type ConversationMemory } from "./request-transformer.js";
 import { convertSseToJson, ensureContentType } from "./response-handler.js";
 import type { UserConfig, RequestBody } from "../types.js";
 import {
@@ -106,12 +106,13 @@ export function rewriteUrlForCodex(url: string): string {
  * @returns Transformed body and updated init, or undefined if no body
  */
 export async function transformRequestForCodex(
-    init: RequestInit | undefined,
-    url: string,
-    codexInstructions: string,
-    userConfig: UserConfig,
-    codexMode = true,
-    promptCacheKey?: string,
+	init: RequestInit | undefined,
+	url: string,
+	codexInstructions: string,
+	userConfig: UserConfig,
+	codexMode = true,
+	promptCacheKey?: string,
+	conversationMemory?: ConversationMemory,
 ): Promise<{ body: RequestBody; updatedInit: RequestInit } | undefined> {
 	if (!init?.body) return undefined;
 
@@ -132,13 +133,14 @@ export async function transformRequestForCodex(
 		});
 
 		// Transform request body
-        const transformedBody = await transformRequestBody(
-            body,
-            codexInstructions,
-            userConfig,
-            codexMode,
-            promptCacheKey,
-        );
+		const transformedBody = await transformRequestBody(
+			body,
+			codexInstructions,
+			userConfig,
+			codexMode,
+			promptCacheKey,
+			conversationMemory,
+		);
 
 		// Log transformed request
 		logRequest(LOG_STAGES.AFTER_TRANSFORM, {
@@ -220,8 +222,9 @@ export async function handleErrorResponse(
  * @returns Processed response (SSE→JSON for non-tool, stream for tool requests)
  */
 export async function handleSuccessResponse(
-	response: Response,
-	hasTools: boolean,
+    response: Response,
+    hasTools: boolean,
+    conversationMemory?: ConversationMemory,
 ): Promise<Response> {
 	const responseHeaders = ensureContentType(response.headers);
 
@@ -231,8 +234,77 @@ export async function handleSuccessResponse(
 		return await convertSseToJson(response, responseHeaders);
 	}
 
-	// For tool requests, return stream as-is (streamText handles SSE)
-	return new Response(response.body, {
+    // For tool requests, stream through, and if memory is available, tap SSE to seed function_call entries.
+    if (!response.body) {
+        return new Response(null, { status: response.status, statusText: response.statusText, headers: responseHeaders });
+    }
+
+    if (!conversationMemory) {
+        return new Response(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: responseHeaders,
+        });
+    }
+
+    const reader = response.body.getReader();
+    const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+            const decoder = new TextDecoder();
+            let buffer = "";
+            const feed = async () => {
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        controller.enqueue(value);
+                        buffer += decoder.decode(value, { stream: true });
+                        let idx;
+                        while ((idx = buffer.indexOf("\n")) >= 0) {
+                            const line = buffer.slice(0, idx);
+                            buffer = buffer.slice(idx + 1);
+                            if (line.startsWith("data: ")) {
+                                const json = line.slice(6);
+                                try {
+                                    const evt = JSON.parse(json);
+                                    const t = evt?.type as string | undefined;
+                                    if (t && (t === "response.output_item.added" || t === "response.output_item.created")) {
+                                        const item = evt?.item ?? evt?.data?.item ?? evt?.response?.item;
+                                        if (item && item.type === "function_call") {
+                                            const callId = item.call_id as string | undefined;
+                                            const idKey = (typeof item.id === "string" && item.id.length > 0) ? item.id : (callId ? `fc:${callId}` : undefined);
+                                            if (idKey && callId) {
+                                                const payload: any = {
+                                                    type: "function_call",
+                                                    name: item.name,
+                                                    arguments: typeof item.arguments === "string" ? item.arguments : "",
+                                                    call_id: callId,
+                                                };
+                                                const now = Date.now();
+                                                // Minimal seeding using idKey as hash to avoid importing internal helpers
+                                                conversationMemory.entries.set(idKey, { hash: idKey, callId, lastUsed: now });
+                                                conversationMemory.payloads.set(idKey, payload as any);
+                                                const prev = conversationMemory.usage.get(idKey) ?? 0;
+                                                conversationMemory.usage.set(idKey, prev + 1);
+                                            }
+                                        }
+                                    }
+                                } catch { /* ignore parse errors */ }
+                            }
+                        }
+                    }
+                } catch {
+                    // swallow
+                } finally {
+                    controller.close();
+                }
+            };
+            feed();
+        },
+        // no explicit type, defaults to bytes
+    });
+
+    return new Response(stream, {
 		status: response.status,
 		statusText: response.statusText,
 		headers: responseHeaders,
