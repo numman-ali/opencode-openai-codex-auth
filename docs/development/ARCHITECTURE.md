@@ -263,7 +263,7 @@ let include: Vec<String> = if reasoning.is_some() {
 
 2. Model Normalization
    ├─ Detect codex/gpt-5/codex-mini variants
-   └─ Normalize to "gpt-5", "gpt-5-codex", or "codex-mini-latest"
+   └─ Normalize to "gpt-5", "gpt-5-codex", or "gpt-5-codex-mini"
 
 3. Config Merging
    ├─ Global options (provider.openai.options)
@@ -314,7 +314,7 @@ let include: Vec<String> = if reasoning.is_some() {
 | **store Parameter** | `false` (ChatGPT) | `false` | ✅ |
 | **Message IDs** | Stripped in stateless | Stripped | ✅ |
 | **reasoning.encrypted_content** | ✅ Included | ✅ Included | ✅ |
-| **Model Normalization** | "gpt-5" / "gpt-5-codex" / "codex-mini-latest" | Same | ✅ |
+| **Model Normalization** | "gpt-5" / "gpt-5-codex" / "gpt-5-codex-mini" | Same | ✅ |
 | **Reasoning Effort** | medium (default) | medium (default) | ✅ |
 | **Text Verbosity** | medium (codex), low (gpt-5) | Same | ✅ |
 
