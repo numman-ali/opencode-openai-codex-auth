@@ -211,7 +211,7 @@ Add this to `~/.config/opencode/opencode.json`:
 - ✅ GPT-5 (Minimal/Low/Medium/High reasoning)
 - ✅ gpt-5-codex-mini (medium/high) plus gpt-5-mini & gpt-5-nano (lightweight variants)
 
-> Codex Mini presets normalize to the ChatGPT slug `codex-mini-latest` (200k input / 100k output tokens).
+> Codex Mini presets normalize to the ChatGPT slug `gpt-5-codex-mini` (200k input / 100k output tokens). Older configs using `codex-mini-latest` continue to work as an alias.
 - ✅ 272k context + 128k output window for every preset
 - ✅ All visible in OpenCode model selector
 - ✅ Optimal settings for each reasoning level

@@ -41,7 +41,7 @@ The main entry point orchestrates a **7-step fetch flow**:
 1. **Token Management**: Check token expiration, refresh if needed
 2. **URL Rewriting**: Transform OpenAI Platform API URLs → ChatGPT backend API (`https://chatgpt.com/backend-api/codex/responses`)
 3. **Request Transformation**:
-   - Normalize model names (all variants → `gpt-5`, `gpt-5-codex`, or `codex-mini-latest`)
+   - Normalize model names (all variants → `gpt-5`, `gpt-5-codex`, or `gpt-5-codex-mini`)
    - Inject Codex system instructions from latest GitHub release
    - Apply reasoning configuration (effort, summary, verbosity)
    - Add CODEX_MODE bridge prompt (default) or tool remap message (legacy)
@@ -99,7 +99,7 @@ The main entry point orchestrates a **7-step fetch flow**:
 
 **4. Model Normalization**:
 - All `gpt-5-codex` variants → `gpt-5-codex`
-- All `gpt-5-codex-mini*` or `codex-mini-latest` variants → `codex-mini-latest`
+- All `gpt-5-codex-mini*` or `codex-mini-latest` variants → `gpt-5-codex-mini`
 - All `gpt-5` variants → `gpt-5`
 - `minimal` effort auto-normalized to `low` for gpt-5-codex (API limitation) and clamped to `medium` (or `high` when requested) for Codex Mini
 

@@ -3,11 +3,11 @@ import { TOOL_REMAP_MESSAGE } from "../prompts/codex.js";
 import { CODEX_OPENCODE_BRIDGE } from "../prompts/codex-opencode-bridge.js";
 import { getOpenCodeCodexPrompt } from "../prompts/opencode-codex.js";
 import type {
-	ConfigOptions,
-	InputItem,
-	ReasoningConfig,
-	RequestBody,
-	UserConfig,
+  ConfigOptions,
+  InputItem,
+  ReasoningConfig,
+  RequestBody,
+  UserConfig,
 } from "../types.js";
 
 /**
@@ -16,24 +16,24 @@ import type {
  * @returns Normalized model name
  */
 export function normalizeModel(model: string | undefined): string {
-	if (!model) return "gpt-5";
+  if (!model) return "gpt-5";
 
-	const normalized = model.toLowerCase();
+  const normalized = model.toLowerCase();
 
-	if (normalized.includes("codex-mini")) {
-		return "codex-mini-latest";
-	}
+  if (normalized.includes("codex-mini")) {
+    return "gpt-5-codex-mini";
+  }
 
-	// Case-insensitive check for "codex" anywhere in the model name
-	if (normalized.includes("codex")) {
-		return "gpt-5-codex";
-	}
-	// Case-insensitive check for "gpt-5" or "gpt 5" (with space)
-	if (normalized.includes("gpt-5") || normalized.includes("gpt 5")) {
-		return "gpt-5";
-	}
+  // Case-insensitive check for "codex" anywhere in the model name
+  if (normalized.includes("codex")) {
+    return "gpt-5-codex";
+  }
+  // Case-insensitive check for "gpt-5" or "gpt 5" (with space)
+  if (normalized.includes("gpt-5") || normalized.includes("gpt 5")) {
+    return "gpt-5";
+  }
 
-	return "gpt-5"; // Default fallback
+  return "gpt-5"; // Default fallback
 }
 
 /**
@@ -44,14 +44,14 @@ export function normalizeModel(model: string | undefined): string {
  * @returns Merged configuration for this model
  */
 export function getModelConfig(
-	modelName: string,
-	userConfig: UserConfig = { global: {}, models: {} },
+  modelName: string,
+  userConfig: UserConfig = { global: {}, models: {} },
 ): ConfigOptions {
-	const globalOptions = userConfig.global || {};
-	const modelOptions = userConfig.models?.[modelName]?.options || {};
+  const globalOptions = userConfig.global || {};
+  const modelOptions = userConfig.models?.[modelName]?.options || {};
 
-	// Model-specific options override global options
-	return { ...globalOptions, ...modelOptions };
+  // Model-specific options override global options
+  return { ...globalOptions, ...modelOptions };
 }
 
 /**
@@ -67,51 +67,52 @@ export function getModelConfig(
  * @returns Reasoning configuration
  */
 export function getReasoningConfig(
-	originalModel: string | undefined,
-	userConfig: ConfigOptions = {},
+  originalModel: string | undefined,
+  userConfig: ConfigOptions = {},
 ): ReasoningConfig {
-	const normalizedOriginal = originalModel?.toLowerCase() ?? "";
-	const isCodexMini =
-		normalizedOriginal.includes("codex-mini") ||
-		normalizedOriginal.includes("codex mini") ||
-		normalizedOriginal.includes("codex_mini") ||
-		normalizedOriginal.includes("codex-mini-latest");
-	const isCodex = normalizedOriginal.includes("codex") && !isCodexMini;
-	const isLightweight =
-		!isCodexMini &&
-		(normalizedOriginal.includes("nano") ||
-			normalizedOriginal.includes("mini"));
+  const normalizedOriginal = originalModel?.toLowerCase() ?? "";
+  const isCodexMini =
+    normalizedOriginal.includes("codex-mini") ||
+    normalizedOriginal.includes("codex mini") ||
+    normalizedOriginal.includes("codex_mini") ||
+    normalizedOriginal.includes("gpt-5-codex-mini") ||
+    normalizedOriginal.includes("codex-mini-latest");
+  const isCodex = normalizedOriginal.includes("codex") && !isCodexMini;
+  const isLightweight =
+    !isCodexMini &&
+    (normalizedOriginal.includes("nano") ||
+      normalizedOriginal.includes("mini"));
 
-	// Default based on model type (Codex CLI defaults)
-	const defaultEffort: "minimal" | "low" | "medium" | "high" = isCodexMini
-		? "medium"
-		: isLightweight
-			? "minimal"
-			: "medium";
+  // Default based on model type (Codex CLI defaults)
+  const defaultEffort: "minimal" | "low" | "medium" | "high" = isCodexMini
+    ? "medium"
+    : isLightweight
+      ? "minimal"
+      : "medium";
 
-	// Get user-requested effort
-	let effort = userConfig.reasoningEffort || defaultEffort;
+  // Get user-requested effort
+  let effort = userConfig.reasoningEffort || defaultEffort;
 
-	if (isCodexMini) {
-		if (effort === "minimal" || effort === "low") {
-			effort = "medium";
-		}
-		if (effort !== "high") {
-			effort = "medium";
-		}
-	}
+  if (isCodexMini) {
+    if (effort === "minimal" || effort === "low") {
+      effort = "medium";
+    }
+    if (effort !== "high") {
+      effort = "medium";
+    }
+  }
 
-	// Normalize "minimal" to "low" for gpt-5-codex
-	// Codex CLI does not provide a "minimal" preset for gpt-5-codex
-	// (only low/medium/high - see model_presets.rs:20-40)
-	if (isCodex && effort === "minimal") {
-		effort = "low";
-	}
+  // Normalize "minimal" to "low" for gpt-5-codex
+  // Codex CLI does not provide a "minimal" preset for gpt-5-codex
+  // (only low/medium/high - see model_presets.rs:20-40)
+  if (isCodex && effort === "minimal") {
+    effort = "low";
+  }
 
-	return {
-		effort,
-		summary: userConfig.reasoningSummary || "auto", // Changed from "detailed" to match Codex CLI
-	};
+  return {
+    effort,
+    summary: userConfig.reasoningSummary || "auto", // Changed from "detailed" to match Codex CLI
+  };
 }
 
 /**
@@ -137,26 +138,26 @@ export function getReasoningConfig(
  * @returns Filtered input array compatible with Codex API
  */
 export function filterInput(
-	input: InputItem[] | undefined,
+  input: InputItem[] | undefined,
 ): InputItem[] | undefined {
-	if (!Array.isArray(input)) return input;
+  if (!Array.isArray(input)) return input;
 
-	return input
-		.filter((item) => {
-			// Remove AI SDK constructs not supported by Codex API
-			if (item.type === "item_reference") {
-				return false; // AI SDK only - references server state
-			}
-			return true; // Keep all other items
-		})
-		.map((item) => {
-			// Strip IDs from all items (Codex API stateless mode)
-			if (item.id) {
-				const { id, ...itemWithoutId } = item;
-				return itemWithoutId as InputItem;
-			}
-			return item;
-		});
+  return input
+    .filter((item) => {
+      // Remove AI SDK constructs not supported by Codex API
+      if (item.type === "item_reference") {
+        return false; // AI SDK only - references server state
+      }
+      return true; // Keep all other items
+    })
+    .map((item) => {
+      // Strip IDs from all items (Codex API stateless mode)
+      if (item.id) {
+        const { id, ...itemWithoutId } = item;
+        return itemWithoutId as InputItem;
+      }
+      return item;
+    });
 }
 
 /**
@@ -167,46 +168,46 @@ export function filterInput(
  * @returns True if this is the OpenCode system prompt
  */
 export function isOpenCodeSystemPrompt(
-	item: InputItem,
-	cachedPrompt: string | null,
+  item: InputItem,
+  cachedPrompt: string | null,
 ): boolean {
-	const isSystemRole = item.role === "developer" || item.role === "system";
-	if (!isSystemRole) return false;
+  const isSystemRole = item.role === "developer" || item.role === "system";
+  if (!isSystemRole) return false;
 
-	const getContentText = (item: InputItem): string => {
-		if (typeof item.content === "string") {
-			return item.content;
-		}
-		if (Array.isArray(item.content)) {
-			return item.content
-				.filter((c) => c.type === "input_text" && c.text)
-				.map((c) => c.text)
-				.join("\n");
-		}
-		return "";
-	};
+  const getContentText = (item: InputItem): string => {
+    if (typeof item.content === "string") {
+      return item.content;
+    }
+    if (Array.isArray(item.content)) {
+      return item.content
+        .filter((c) => c.type === "input_text" && c.text)
+        .map((c) => c.text)
+        .join("\n");
+    }
+    return "";
+  };
 
-	const contentText = getContentText(item);
-	if (!contentText) return false;
+  const contentText = getContentText(item);
+  if (!contentText) return false;
 
-	// Primary check: Compare against cached OpenCode prompt
-	if (cachedPrompt) {
-		// Exact match (trim whitespace for comparison)
-		if (contentText.trim() === cachedPrompt.trim()) {
-			return true;
-		}
+  // Primary check: Compare against cached OpenCode prompt
+  if (cachedPrompt) {
+    // Exact match (trim whitespace for comparison)
+    if (contentText.trim() === cachedPrompt.trim()) {
+      return true;
+    }
 
-		// Partial match: Check if first 200 chars match (handles minor variations)
-		const contentPrefix = contentText.trim().substring(0, 200);
-		const cachedPrefix = cachedPrompt.trim().substring(0, 200);
-		if (contentPrefix === cachedPrefix) {
-			return true;
-		}
-	}
+    // Partial match: Check if first 200 chars match (handles minor variations)
+    const contentPrefix = contentText.trim().substring(0, 200);
+    const cachedPrefix = cachedPrompt.trim().substring(0, 200);
+    if (contentPrefix === cachedPrefix) {
+      return true;
+    }
+  }
 
-	// Fallback check: Known OpenCode prompt signature (for safety)
-	// This catches the prompt even if cache fails
-	return contentText.startsWith("You are a coding agent running in");
+  // Fallback check: Known OpenCode prompt signature (for safety)
+  // This catches the prompt even if cache fails
+  return contentText.startsWith("You are a coding agent running in");
 }
 
 /**
@@ -216,25 +217,25 @@ export function isOpenCodeSystemPrompt(
  * @returns Input array without OpenCode system prompts
  */
 export async function filterOpenCodeSystemPrompts(
-	input: InputItem[] | undefined,
+  input: InputItem[] | undefined,
 ): Promise<InputItem[] | undefined> {
-	if (!Array.isArray(input)) return input;
+  if (!Array.isArray(input)) return input;
 
-	// Fetch cached OpenCode prompt for verification
-	let cachedPrompt: string | null = null;
-	try {
-		cachedPrompt = await getOpenCodeCodexPrompt();
-	} catch {
-		// If fetch fails, fallback to text-based detection only
-		// This is safe because we still have the "starts with" check
-	}
+  // Fetch cached OpenCode prompt for verification
+  let cachedPrompt: string | null = null;
+  try {
+    cachedPrompt = await getOpenCodeCodexPrompt();
+  } catch {
+    // If fetch fails, fallback to text-based detection only
+    // This is safe because we still have the "starts with" check
+  }
 
-	return input.filter((item) => {
-		// Keep user messages
-		if (item.role === "user") return true;
-		// Filter out OpenCode system prompts
-		return !isOpenCodeSystemPrompt(item, cachedPrompt);
-	});
+  return input.filter((item) => {
+    // Keep user messages
+    if (item.role === "user") return true;
+    // Filter out OpenCode system prompts
+    return !isOpenCodeSystemPrompt(item, cachedPrompt);
+  });
 }
 
 /**
@@ -244,23 +245,23 @@ export async function filterOpenCodeSystemPrompts(
  * @returns Input array with bridge message prepended if needed
  */
 export function addCodexBridgeMessage(
-	input: InputItem[] | undefined,
-	hasTools: boolean,
+  input: InputItem[] | undefined,
+  hasTools: boolean,
 ): InputItem[] | undefined {
-	if (!hasTools || !Array.isArray(input)) return input;
+  if (!hasTools || !Array.isArray(input)) return input;
 
-	const bridgeMessage: InputItem = {
-		type: "message",
-		role: "developer",
-		content: [
-			{
-				type: "input_text",
-				text: CODEX_OPENCODE_BRIDGE,
-			},
-		],
-	};
+  const bridgeMessage: InputItem = {
+    type: "message",
+    role: "developer",
+    content: [
+      {
+        type: "input_text",
+        text: CODEX_OPENCODE_BRIDGE,
+      },
+    ],
+  };
 
-	return [bridgeMessage, ...input];
+  return [bridgeMessage, ...input];
 }
 
 /**
@@ -270,23 +271,23 @@ export function addCodexBridgeMessage(
  * @returns Input array with tool remap message prepended if needed
  */
 export function addToolRemapMessage(
-	input: InputItem[] | undefined,
-	hasTools: boolean,
+  input: InputItem[] | undefined,
+  hasTools: boolean,
 ): InputItem[] | undefined {
-	if (!hasTools || !Array.isArray(input)) return input;
+  if (!hasTools || !Array.isArray(input)) return input;
 
-	const toolRemapMessage: InputItem = {
-		type: "message",
-		role: "developer",
-		content: [
-			{
-				type: "input_text",
-				text: TOOL_REMAP_MESSAGE,
-			},
-		],
-	};
+  const toolRemapMessage: InputItem = {
+    type: "message",
+    role: "developer",
+    content: [
+      {
+        type: "input_text",
+        text: TOOL_REMAP_MESSAGE,
+      },
+    ],
+  };
 
-	return [toolRemapMessage, ...input];
+  return [toolRemapMessage, ...input];
 }
 
 /**
@@ -304,100 +305,100 @@ export function addToolRemapMessage(
  * @returns Transformed request body
  */
 export async function transformRequestBody(
-	body: RequestBody,
-	codexInstructions: string,
-	userConfig: UserConfig = { global: {}, models: {} },
-	codexMode = true,
+  body: RequestBody,
+  codexInstructions: string,
+  userConfig: UserConfig = { global: {}, models: {} },
+  codexMode = true,
 ): Promise<RequestBody> {
-	const originalModel = body.model;
-	const normalizedModel = normalizeModel(body.model);
+  const originalModel = body.model;
+  const normalizedModel = normalizeModel(body.model);
 
-	// Get model-specific configuration using ORIGINAL model name (config key)
-	// This allows per-model options like "gpt-5-codex-low" to work correctly
-	const lookupModel = originalModel || normalizedModel;
-	const modelConfig = getModelConfig(lookupModel, userConfig);
+  // Get model-specific configuration using ORIGINAL model name (config key)
+  // This allows per-model options like "gpt-5-codex-low" to work correctly
+  const lookupModel = originalModel || normalizedModel;
+  const modelConfig = getModelConfig(lookupModel, userConfig);
 
-	// Debug: Log which config was resolved
-	logDebug(
-		`Model config lookup: "${lookupModel}" → normalized to "${normalizedModel}" for API`,
-		{
-			hasModelSpecificConfig: !!userConfig.models?.[lookupModel],
-			resolvedConfig: modelConfig,
-		},
-	);
+  // Debug: Log which config was resolved
+  logDebug(
+    `Model config lookup: "${lookupModel}" → normalized to "${normalizedModel}" for API`,
+    {
+      hasModelSpecificConfig: !!userConfig.models?.[lookupModel],
+      resolvedConfig: modelConfig,
+    },
+  );
 
-	// Normalize model name for API call
-	body.model = normalizedModel;
+  // Normalize model name for API call
+  body.model = normalizedModel;
 
-	// Codex required fields
-	// ChatGPT backend REQUIRES store=false (confirmed via testing)
-	body.store = false;
-	body.stream = true;
-	body.instructions = codexInstructions;
+  // Codex required fields
+  // ChatGPT backend REQUIRES store=false (confirmed via testing)
+  body.store = false;
+  body.stream = true;
+  body.instructions = codexInstructions;
 
-	// Prompt caching relies on the host providing a stable prompt_cache_key
-	// (OpenCode passes its session identifier). We no longer synthesize one here.
+  // Prompt caching relies on the host providing a stable prompt_cache_key
+  // (OpenCode passes its session identifier). We no longer synthesize one here.
 
-	// Filter and transform input
-	if (body.input && Array.isArray(body.input)) {
-		// Debug: Log original input message IDs before filtering
-		const originalIds = body.input
-			.filter((item) => item.id)
-			.map((item) => item.id);
-		if (originalIds.length > 0) {
-			logDebug(
-				`Filtering ${originalIds.length} message IDs from input:`,
-				originalIds,
-			);
-		}
+  // Filter and transform input
+  if (body.input && Array.isArray(body.input)) {
+    // Debug: Log original input message IDs before filtering
+    const originalIds = body.input
+      .filter((item) => item.id)
+      .map((item) => item.id);
+    if (originalIds.length > 0) {
+      logDebug(
+        `Filtering ${originalIds.length} message IDs from input:`,
+        originalIds,
+      );
+    }
 
-		body.input = filterInput(body.input);
+    body.input = filterInput(body.input);
 
-		// Debug: Verify all IDs were removed
-		const remainingIds = (body.input || [])
-			.filter((item) => item.id)
-			.map((item) => item.id);
-		if (remainingIds.length > 0) {
-			logWarn(
-				`WARNING: ${remainingIds.length} IDs still present after filtering:`,
-				remainingIds,
-			);
-		} else if (originalIds.length > 0) {
-			logDebug(`Successfully removed all ${originalIds.length} message IDs`);
-		}
+    // Debug: Verify all IDs were removed
+    const remainingIds = (body.input || [])
+      .filter((item) => item.id)
+      .map((item) => item.id);
+    if (remainingIds.length > 0) {
+      logWarn(
+        `WARNING: ${remainingIds.length} IDs still present after filtering:`,
+        remainingIds,
+      );
+    } else if (originalIds.length > 0) {
+      logDebug(`Successfully removed all ${originalIds.length} message IDs`);
+    }
 
-		if (codexMode) {
-			// CODEX_MODE: Remove OpenCode system prompt, add bridge prompt
-			body.input = await filterOpenCodeSystemPrompts(body.input);
-			body.input = addCodexBridgeMessage(body.input, !!body.tools);
-		} else {
-			// DEFAULT MODE: Keep original behavior with tool remap message
-			body.input = addToolRemapMessage(body.input, !!body.tools);
-		}
-	}
+    if (codexMode) {
+      // CODEX_MODE: Remove OpenCode system prompt, add bridge prompt
+      body.input = await filterOpenCodeSystemPrompts(body.input);
+      body.input = addCodexBridgeMessage(body.input, !!body.tools);
+    } else {
+      // DEFAULT MODE: Keep original behavior with tool remap message
+      body.input = addToolRemapMessage(body.input, !!body.tools);
+    }
+  }
 
-	// Configure reasoning (use model-specific config)
-	const reasoningConfig = getReasoningConfig(originalModel, modelConfig);
-	body.reasoning = {
-		...body.reasoning,
-		...reasoningConfig,
-	};
+  // Configure reasoning (use model-specific config)
+  const reasoningConfig = getReasoningConfig(originalModel, modelConfig);
+  body.reasoning = {
+    ...body.reasoning,
+    ...reasoningConfig,
+  };
 
-	// Configure text verbosity (support user config)
-	// Default: "medium" (matches Codex CLI default for all GPT-5 models)
-	body.text = {
-		...body.text,
-		verbosity: modelConfig.textVerbosity || "medium",
-	};
+  // Configure text verbosity (support user config)
+  // Default: "medium" (matches Codex CLI default for all GPT-5 models)
+  body.text = {
+    ...body.text,
+    verbosity: modelConfig.textVerbosity || "medium",
+  };
 
-	// Add include for encrypted reasoning content
-	// Default: ["reasoning.encrypted_content"] (required for stateless operation with store=false)
-	// This allows reasoning context to persist across turns without server-side storage
-	body.include = modelConfig.include || ["reasoning.encrypted_content"];
+  // Add include for encrypted reasoning content
+  // Default: ["reasoning.encrypted_content"] (required for stateless operation with store=false)
+  // This allows reasoning context to persist across turns without server-side storage
+  body.include = modelConfig.include || ["reasoning.encrypted_content"];
 
-	// Remove unsupported parameters
-	body.max_output_tokens = undefined;
-	body.max_completion_tokens = undefined;
+  // Remove unsupported parameters
+  body.max_output_tokens = undefined;
+  body.max_completion_tokens = undefined;
 
-	return body;
+  return body;
 }

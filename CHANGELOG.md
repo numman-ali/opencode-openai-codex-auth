@@ -4,7 +4,7 @@ All notable changes to this project are documented here. Dates use the ISO forma
 
 ## [3.1.0] - 2025-11-11
 ### Added
-- Codex Mini support end-to-end: normalization to the `codex-mini-latest` slug, proper reasoning defaults, and two new presets (`gpt-5-codex-mini-medium` / `gpt-5-codex-mini-high`).
+- Codex Mini support end-to-end: normalization to the `gpt-5-codex-mini` slug (with legacy `codex-mini-latest` alias), proper reasoning defaults, and two new presets (`gpt-5-codex-mini-medium` / `gpt-5-codex-mini-high`).
 - Documentation & configuration updates describing the Codex Mini tier (200k input / 100k output tokens) plus refreshed totals (11 presets, 160+ unit tests).
 
 ### Fixed

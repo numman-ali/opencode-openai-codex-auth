@@ -361,7 +361,7 @@ When using [`config/full-opencode.json`](./config/full-opencode.json), you get t
 **Usage**: `--model=openai/<CLI Model ID>` (e.g., `--model=openai/gpt-5-codex-low`)
 **Display**: TUI shows the friendly name (e.g., "GPT 5 Codex Low (OAuth)")
 
-> **Note**: All `gpt-5-codex-mini*` presets normalize to the ChatGPT slug `codex-mini-latest` (200k input / 100k output tokens).
+> **Note**: All `gpt-5-codex-mini*` presets normalize to the ChatGPT slug `gpt-5-codex-mini` (200k input / 100k output tokens). The legacy `codex-mini-latest` alias is still accepted for backwards compatibility.
 
 All accessed via your ChatGPT Plus/Pro subscription.
 
