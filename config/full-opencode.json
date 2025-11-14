@@ -159,8 +159,8 @@
             "store": false
           }
         },
-        "gpt-5.1-mini": {
-          "name": "GPT 5.1 Mini (OAuth)",
+        "gpt-5-mini": {
+          "name": "GPT 5 Mini (OAuth)",
           "limit": {
             "context": 272000,
             "output": 128000
@@ -175,8 +175,8 @@
             "store": false
           }
         },
-        "gpt-5.1-nano": {
-          "name": "GPT 5.1 Nano (OAuth)",
+        "gpt-5-nano": {
+          "name": "GPT 5 Nano (OAuth)",
           "limit": {
             "context": 272000,
             "output": 128000
