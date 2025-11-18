@@ -61,10 +61,5 @@
   "overrides": {
     "hono": "^4.10.4",
     "vite": "^7.1.12"
-  },
-  "directories": {
-    "doc": "docs",
-    "lib": "lib",
-    "test": "test"
   }
 }
