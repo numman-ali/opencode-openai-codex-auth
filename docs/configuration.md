@@ -18,6 +18,20 @@ Complete reference for configuring the OpenCode OpenAI Codex Auth Plugin.
         "store": false
       },
       "models": {
+        "gpt-5.1-codex-max-low": {
+          "name": "GPT 5.1 Codex Max Low (OAuth)",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "options": {
+            "reasoningEffort": "low",
+            "reasoningSummary": "auto",
+            "textVerbosity": "medium",
+            "include": ["reasoning.encrypted_content"],
+            "store": false
+          }
+        },
         "gpt-5.1-codex-low": {
           "name": "GPT 5.1 Codex Low (OAuth)",
           "limit": {
@@ -46,6 +60,12 @@ Complete reference for configuring the OpenCode OpenAI Codex Auth Plugin.
 
 Controls computational effort for reasoning.
 
+**GPT-5.1-Codex-Max Values:**
+- `low` - Fast responses
+- `medium` - Balanced (default)
+- `high` - Deep reasoning
+- `xhigh` - Extra high reasoning depth
+
 **GPT-5 Values:**
 - `minimal` - Fastest, least reasoning
 - `low` - Light reasoning
@@ -60,12 +80,13 @@ Controls computational effort for reasoning.
 **Notes**:
 - `minimal` auto-converts to `low` for gpt-5-codex (API limitation)
 - `gpt-5-codex-mini*` and `gpt-5.1-codex-mini*` only support `medium` or `high`; lower settings are clamped to `medium`
+- `xhigh` is only supported by `gpt-5.1-codex-max`
 
 **Example:**
 ```json
 {
   "options": {
-    "reasoningEffort": "high"
+    "reasoningEffort": "xhigh"
   }
 }
 ```
@@ -96,7 +117,7 @@ Controls output length.
 - `medium` - Balanced (default)
 - `high` - Verbose
 
-**GPT-5-Codex:**
+**GPT-5-Codex & GPT-5.1-Codex-Max:**
 - `medium` only (API limitation)
 
 **Example:**

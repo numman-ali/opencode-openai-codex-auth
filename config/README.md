@@ -14,13 +14,13 @@ cp config/full-opencode.json ~/.config/opencode/opencode.json
 
 **Why this is required:**
 - GPT 5 models can be temperamental and need proper configuration
-- Contains 8 verified GPT 5.1 model variants (Codex, Codex Mini, and general GPT 5.1)
+- Contains 12 verified GPT 5.1 model variants (Codex Max, Codex, Codex Mini, and general GPT 5.1)
 - Includes all required metadata for OpenCode features
 - Guaranteed to work reliably
 - Global options for all models + per-model configuration overrides
 
 **What's included:**
-- All supported GPT 5.1 variants: gpt-5.1, gpt-5.1-codex, gpt-5.1-codex-mini
+- All supported GPT 5.1 variants: gpt-5.1-codex-max, gpt-5.1, gpt-5.1-codex, gpt-5.1-codex-mini
 - Proper reasoning effort settings for each variant
 - Context limits (272k context / 128k output)
 - Required options: `store: false`, `include: ["reasoning.encrypted_content"]`
