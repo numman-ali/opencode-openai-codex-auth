@@ -4,7 +4,7 @@ This file provides coding guidance for AI agents (including Claude Code, Codex, 
 
 ## Overview
 
-This is an **opencode plugin** that enables OAuth authentication with OpenAI's ChatGPT Plus/Pro Codex backend. It allows users to access `gpt-5.1-codex`, `gpt-5.1-codex-mini`, `gpt-5-codex`, `gpt-5-codex-mini`, `gpt-5.1`, and `gpt-5` models through their ChatGPT subscription instead of using OpenAI Platform API credits.
+This is an **opencode plugin** that enables OAuth authentication with OpenAI's ChatGPT Plus/Pro Codex backend. It allows users to access `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5-codex`, `gpt-5-codex-mini`, `gpt-5.1`, and `gpt-5` models through their ChatGPT subscription instead of using OpenAI Platform API credits.
 
 **Key architecture principle**: 7-step fetch flow that intercepts opencode's OpenAI SDK requests, transforms them for the ChatGPT backend API, and handles OAuth token management.
 
@@ -41,7 +41,7 @@ The main entry point orchestrates a **7-step fetch flow**:
 1. **Token Management**: Check token expiration, refresh if needed
 2. **URL Rewriting**: Transform OpenAI Platform API URLs → ChatGPT backend API (`https://chatgpt.com/backend-api/codex/responses`)
 3. **Request Transformation**:
-   - Normalize model names (all variants → `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-codex-mini`, `gpt-5`, `gpt-5-codex`, or `codex-mini-latest`)
+   - Normalize model names (all variants → `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5`, `gpt-5-codex`, or `codex-mini-latest`)
    - Inject Codex system instructions from latest GitHub release
    - Apply reasoning configuration (effort, summary, verbosity)
    - Add CODEX_MODE bridge prompt (default) or tool remap message (legacy)
@@ -98,13 +98,14 @@ The main entry point orchestrates a **7-step fetch flow**:
 - Plugin defaults: `reasoningEffort: "medium"`, `reasoningSummary: "auto"`, `textVerbosity: "medium"`
 
 **4. Model Normalization**:
+- All `gpt-5.1-codex-max*` variants → `gpt-5.1-codex-max`
 - All `gpt-5.1-codex*` variants → `gpt-5.1-codex`
 - All `gpt-5.1-codex-mini*` variants → `gpt-5.1-codex-mini`
 - All `gpt-5-codex` variants → `gpt-5-codex`
 - All `gpt-5-codex-mini*` or `codex-mini-latest` variants → `codex-mini-latest`
 - All `gpt-5.1` variants → `gpt-5.1`
 - All `gpt-5` variants → `gpt-5`
-- `minimal` effort auto-normalized to `low` for gpt-5-codex (API limitation) and clamped to `medium` (or `high` when requested) for Codex Mini
+- `minimal` effort auto-normalized to `low` for Codex families and clamped to `medium` (or `high` when requested) for Codex Mini
 
 **5. Codex Instructions Caching**:
 - Fetches from latest release tag (not main branch)
@@ -150,7 +151,7 @@ This plugin **intentionally differs from opencode defaults** because it accesses
 
 | Setting | opencode Default | This Plugin Default | Reason |
 |---------|-----------------|---------------------|--------|
-| `reasoningEffort` | "high" (gpt-5) | "medium" | Matches Codex CLI default |
+| `reasoningEffort` | "high" (gpt-5) | "medium" (Codex Max defaults to "high") | Matches Codex CLI default and Codex Max capabilities |
 | `textVerbosity` | "low" (gpt-5) | "medium" | Matches Codex CLI default |
 | `reasoningSummary` | "detailed" | "auto" | Matches Codex CLI default |
 | gpt-5-codex config | (excluded) | Full support | opencode excludes gpt-5-codex from auto-config |

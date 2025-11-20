@@ -150,9 +150,13 @@ update_config() {
 update_config "full"
 
 # GPT 5.1 Codex presets
-test_model "gpt-5.1-codex-low"       "gpt-5.1-codex"       "low"     "auto"     "medium"
-test_model "gpt-5.1-codex-medium"    "gpt-5.1-codex"       "medium"  "auto"     "medium"
-test_model "gpt-5.1-codex-high"      "gpt-5.1-codex"       "high"    "detailed" "medium"
+test_model "gpt-5.1-codex-low"        "gpt-5.1-codex"       "low"     "auto"     "medium"
+test_model "gpt-5.1-codex-medium"     "gpt-5.1-codex"       "medium"  "auto"     "medium"
+test_model "gpt-5.1-codex-high"       "gpt-5.1-codex"       "high"    "detailed" "medium"
+test_model "gpt-5.1-codex-max-low"    "gpt-5.1-codex-max"   "low"     "detailed" "medium"
+test_model "gpt-5.1-codex-max-medium" "gpt-5.1-codex-max"   "medium"  "detailed" "medium"
+test_model "gpt-5.1-codex-max-high"   "gpt-5.1-codex-max"   "high"    "detailed" "medium"
+test_model "gpt-5.1-codex-max-xhigh"  "gpt-5.1-codex-max"   "xhigh"   "detailed" "medium"
 
 # GPT 5.1 Codex Mini presets (medium/high only)
 test_model "gpt-5.1-codex-mini-medium" "gpt-5.1-codex-mini" "medium"  "auto"     "medium"

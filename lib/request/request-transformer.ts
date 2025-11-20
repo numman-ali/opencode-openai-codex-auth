@@ -38,7 +38,15 @@ export function normalizeModel(model: string | undefined): string {
 	const normalized = modelId.toLowerCase();
 
 	// Priority order for pattern matching (most specific first):
-	// 1. GPT-5.1 Codex Mini
+	// 1. GPT-5.1 Codex Max
+	if (
+		normalized.includes("gpt-5.1-codex-max") ||
+		normalized.includes("gpt 5.1 codex max")
+	) {
+		return "gpt-5.1-codex-max";
+	}
+
+	// 2. GPT-5.1 Codex Mini
 	if (
 		normalized.includes("gpt-5.1-codex-mini") ||
 		normalized.includes("gpt 5.1 codex mini")
@@ -46,7 +54,7 @@ export function normalizeModel(model: string | undefined): string {
 		return "gpt-5.1-codex-mini";
 	}
 
-	// 2. Legacy Codex Mini
+	// 3. Legacy Codex Mini
 	if (
 		normalized.includes("codex-mini-latest") ||
 		normalized.includes("gpt-5-codex-mini") ||
@@ -55,7 +63,7 @@ export function normalizeModel(model: string | undefined): string {
 		return "codex-mini-latest";
 	}
 
-	// 3. GPT-5.1 Codex
+	// 4. GPT-5.1 Codex
 	if (
 		normalized.includes("gpt-5.1-codex") ||
 		normalized.includes("gpt 5.1 codex")
@@ -63,17 +71,17 @@ export function normalizeModel(model: string | undefined): string {
 		return "gpt-5.1-codex";
 	}
 
-	// 4. GPT-5.1 (general-purpose)
+	// 5. GPT-5.1 (general-purpose)
 	if (normalized.includes("gpt-5.1") || normalized.includes("gpt 5.1")) {
 		return "gpt-5.1";
 	}
 
-	// 5. GPT-5 Codex family (any variant with "codex")
+	// 6. GPT-5 Codex family (any variant with "codex")
 	if (normalized.includes("codex")) {
 		return "gpt-5-codex";
 	}
 
-	// 6. GPT-5 family (any variant)
+	// 7. GPT-5 family (any variant)
 	if (normalized.includes("gpt-5") || normalized.includes("gpt 5")) {
 		return "gpt-5";
 	}
@@ -113,43 +121,55 @@ export function getModelConfig(
  * @returns Reasoning configuration
  */
 export function getReasoningConfig(
-	originalModel: string | undefined,
+	modelName: string | undefined,
 	userConfig: ConfigOptions = {},
 ): ReasoningConfig {
-	const normalizedOriginal = originalModel?.toLowerCase() ?? "";
+	const normalizedName = modelName?.toLowerCase() ?? "";
+	const isCodexMax =
+		normalizedName.includes("codex-max") ||
+		normalizedName.includes("codex max");
 	const isCodexMini =
-		normalizedOriginal.includes("codex-mini") ||
-		normalizedOriginal.includes("codex mini") ||
-		normalizedOriginal.includes("codex_mini") ||
-		normalizedOriginal.includes("codex-mini-latest");
-	const isCodex = normalizedOriginal.includes("codex") && !isCodexMini;
+		normalizedName.includes("codex-mini") ||
+		normalizedName.includes("codex mini") ||
+		normalizedName.includes("codex_mini") ||
+		normalizedName.includes("codex-mini-latest");
+	const isCodex = normalizedName.includes("codex") && !isCodexMini;
 	const isLightweight =
 		!isCodexMini &&
-		(normalizedOriginal.includes("nano") ||
-			normalizedOriginal.includes("mini"));
+		(normalizedName.includes("nano") ||
+			normalizedName.includes("mini"));
 
 	// Default based on model type (Codex CLI defaults)
-	const defaultEffort: "minimal" | "low" | "medium" | "high" = isCodexMini
+	const defaultEffort: ReasoningConfig["effort"] = isCodexMini
 		? "medium"
-		: isLightweight
-			? "minimal"
-			: "medium";
+		: isCodexMax
+			? "high"
+			: isLightweight
+				? "minimal"
+				: "medium";
 
 	// Get user-requested effort
 	let effort = userConfig.reasoningEffort || defaultEffort;
 
 	if (isCodexMini) {
-		if (effort === "minimal" || effort === "low") {
+		if (effort === "minimal" || effort === "low" || effort === "none") {
 			effort = "medium";
 		}
-		if (effort !== "high") {
+		if (effort === "xhigh") {
+			effort = "high";
+		}
+		if (effort !== "high" && effort !== "medium") {
 			effort = "medium";
 		}
 	}
 
-	// Normalize "minimal" to "low" for gpt-5-codex
-	// Codex CLI does not provide a "minimal" preset for gpt-5-codex
-	// (only low/medium/high - see model_presets.rs:20-40)
+	// For all non-Codex-Max models, downgrade unsupported xhigh to high
+	if (!isCodexMax && effort === "xhigh") {
+		effort = "high";
+	}
+
+	// Normalize "minimal" to "low" for Codex families
+	// Codex CLI presets are low/medium/high (or xhigh for Codex Max)
 	if (isCodex && effort === "minimal") {
 		effort = "low";
 	}
@@ -422,8 +442,8 @@ export async function transformRequestBody(
 		}
 	}
 
-	// Configure reasoning (use model-specific config)
-	const reasoningConfig = getReasoningConfig(originalModel, modelConfig);
+	// Configure reasoning (use normalized model family + model-specific config)
+	const reasoningConfig = getReasoningConfig(normalizedModel, modelConfig);
 	body.reasoning = {
 		...body.reasoning,
 		...reasoningConfig,

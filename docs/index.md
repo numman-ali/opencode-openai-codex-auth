@@ -82,8 +82,8 @@ opencode run "write hello world to test.txt" --model=openai/gpt-5-codex
 ## Features
 
 ✅ **OAuth Authentication** - Secure ChatGPT Plus/Pro login
-✅ **GPT 5.1 Models** - gpt-5.1, gpt-5.1-codex, gpt-5.1-codex-mini (8 pre-configured variants)
-✅ **Per-Model Configuration** - Different reasoning effort, verbosity for each variant
+✅ **GPT 5.1 Models** - gpt-5.1, gpt-5.1-codex, gpt-5.1-codex-max, gpt-5.1-codex-mini (12 pre-configured variants including `gpt-5.1-codex-max-low/medium/high/xhigh`)
+✅ **Per-Model Configuration** - Different reasoning effort, including new `xhigh` for Codex Max
 ✅ **Multi-Turn Conversations** - Full conversation history with stateless backend
 ✅ **Verified Configuration** - Use `config/full-opencode.json` for guaranteed compatibility
 ✅ **Comprehensive Testing** - 160+ unit tests + 14 integration tests

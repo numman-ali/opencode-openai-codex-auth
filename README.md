@@ -33,7 +33,7 @@ Follow me on [X @nummanthinks](https://x.com/nummanthinks) for future updates an
 ## Features
 
 - ✅ **ChatGPT Plus/Pro OAuth authentication** - Use your existing subscription
-- ✅ **8 pre-configured GPT 5.1 variants** - GPT 5.1, GPT 5.1 Codex, and GPT 5.1 Codex Mini presets for common reasoning levels
+- ✅ **13 pre-configured GPT 5.1 variants** - GPT 5.1, GPT 5.1 Codex, GPT 5.1 Codex Max, and GPT 5.1 Codex Mini presets for common reasoning levels (including `gpt-5.1-codex-max` and `gpt-5.1-codex-max-low/medium/high/xhigh`)
 - ⚠️ **GPT 5.1 only** - Older GPT 5.0 models are deprecated and may not work reliably
 - ✅ **Zero external dependencies** - Lightweight with only @openauthjs/openauth
 - ✅ **Auto-refreshing tokens** - Handles token expiration automatically
@@ -122,6 +122,86 @@ Follow me on [X @nummanthinks](https://x.com/nummanthinks) for future updates an
           },
           "options": {
             "reasoningEffort": "high",
+            "reasoningSummary": "detailed",
+            "textVerbosity": "medium",
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "store": false
+          }
+        },
+        "gpt-5.1-codex-max": {
+          "name": "GPT 5.1 Codex Max (OAuth)",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "options": {
+            "reasoningEffort": "high",
+            "reasoningSummary": "detailed",
+            "textVerbosity": "medium",
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "store": false
+          }
+        },
+        "gpt-5.1-codex-max-low": {
+          "name": "GPT 5.1 Codex Max Low (OAuth)",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "options": {
+            "reasoningEffort": "low",
+            "reasoningSummary": "detailed",
+            "textVerbosity": "medium",
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "store": false
+          }
+        },
+        "gpt-5.1-codex-max-medium": {
+          "name": "GPT 5.1 Codex Max Medium (OAuth)",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "options": {
+            "reasoningEffort": "medium",
+            "reasoningSummary": "detailed",
+            "textVerbosity": "medium",
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "store": false
+          }
+        },
+        "gpt-5.1-codex-max-high": {
+          "name": "GPT 5.1 Codex Max High (OAuth)",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "options": {
+            "reasoningEffort": "high",
+            "reasoningSummary": "detailed",
+            "textVerbosity": "medium",
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "store": false
+          }
+        },
+        "gpt-5.1-codex-max-xhigh": {
+          "name": "GPT 5.1 Codex Max Extra High (OAuth)",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "options": {
+            "reasoningEffort": "xhigh",
             "reasoningSummary": "detailed",
             "textVerbosity": "medium",
             "include": [
@@ -219,8 +299,9 @@ Follow me on [X @nummanthinks](https://x.com/nummanthinks) for future updates an
    **Global config**: `~/.config/opencode/opencode.json`
    **Project config**: `<project>/.opencode.json`
 
-   This gives you 8 GPT 5.1 variants with different reasoning levels:
+   This gives you 13 GPT 5.1 variants with different reasoning levels:
    - **gpt-5.1-codex** (low/medium/high) - Latest Codex model presets
+   - **gpt-5.1-codex-max** (low/medium/high/xhigh) - Codex Max presets (`gpt-5.1-codex-max-low/medium/high/xhigh`)
    - **gpt-5.1-codex-mini** (medium/high) - Latest Codex mini tier presets
    - **gpt-5.1** (low/medium/high) - Latest general-purpose reasoning presets
 
@@ -293,6 +374,8 @@ If using the full configuration, select from the model picker in opencode, or sp
 # Use different reasoning levels for gpt-5.1-codex
 opencode run "simple task" --model=openai/gpt-5.1-codex-low
 opencode run "complex task" --model=openai/gpt-5.1-codex-high
+opencode run "large refactor" --model=openai/gpt-5.1-codex-max-high
+opencode run "research-grade analysis" --model=openai/gpt-5.1-codex-max-xhigh
 
 # Use different reasoning levels for gpt-5.1
 opencode run "quick question" --model=openai/gpt-5.1-low
@@ -312,6 +395,11 @@ When using [`config/full-opencode.json`](./config/full-opencode.json), you get t
 | `gpt-5.1-codex-low` | GPT 5.1 Codex Low (OAuth) | Low | Fast code generation |
 | `gpt-5.1-codex-medium` | GPT 5.1 Codex Medium (OAuth) | Medium | Balanced code tasks |
 | `gpt-5.1-codex-high` | GPT 5.1 Codex High (OAuth) | High | Complex code & tools |
+| `gpt-5.1-codex-max` | GPT 5.1 Codex Max (OAuth) | High | Default Codex Max preset with large-context support |
+| `gpt-5.1-codex-max-low` | GPT 5.1 Codex Max Low (OAuth) | Low | Fast exploratory large-context work |
+| `gpt-5.1-codex-max-medium` | GPT 5.1 Codex Max Medium (OAuth) | Medium | Balanced large-context builds |
+| `gpt-5.1-codex-max-high` | GPT 5.1 Codex Max High (OAuth) | High | Long-horizon builds, large refactors |
+| `gpt-5.1-codex-max-xhigh` | GPT 5.1 Codex Max Extra High (OAuth) | xHigh | Deep multi-hour agent loops, research/debug marathons |
 | `gpt-5.1-codex-mini-medium` | GPT 5.1 Codex Mini Medium (OAuth) | Medium | Latest Codex mini tier |
 | `gpt-5.1-codex-mini-high` | GPT 5.1 Codex Mini High (OAuth) | High | Codex Mini with maximum reasoning |
 | `gpt-5.1-low` | GPT 5.1 Low (OAuth) | Low | Faster responses with light reasoning |
@@ -322,6 +410,8 @@ When using [`config/full-opencode.json`](./config/full-opencode.json), you get t
 **Display**: TUI shows the friendly name (e.g., "GPT 5.1 Codex Low (OAuth)")
 
 > **Note**: All `gpt-5.1-codex-mini*` presets map directly to the `gpt-5.1-codex-mini` slug with standard Codex limits (272k context / 128k output).
+>
+> **Note**: Codex Max presets use the `gpt-5.1-codex-max` slug with 272k context and 128k output. Use `gpt-5.1-codex-max-low/medium/high/xhigh` to pick reasoning level (only `-xhigh` uses `xhigh` reasoning).
 
 > **⚠️ Important**: GPT 5 models can be temperamental - some variants may work better than others, some may give errors, and behavior may vary. Stick to the presets above configured in `full-opencode.json` for best results.
 
@@ -357,6 +447,8 @@ When no configuration is specified, the plugin uses these defaults for all GPT-5
 - **`reasoningSummary: "auto"`** - Automatically adapts summary verbosity
 - **`textVerbosity: "medium"`** - Balanced output length
 
+Codex Max defaults to `reasoningEffort: "high"` when selected, while other families default to `medium`.
+
 These defaults match the official Codex CLI behavior and can be customized (see Configuration below).
 
 ## Configuration
@@ -364,7 +456,7 @@ These defaults match the official Codex CLI behavior and can be customized (see 
 ### ⚠️ REQUIRED: Use Pre-Configured File
 
 **YOU MUST use [`config/full-opencode.json`](./config/full-opencode.json)** - this is the only officially supported configuration:
-- 8 pre-configured GPT 5.1 model variants with verified settings
+- 13 pre-configured GPT 5.1 model variants with verified settings
 - Optimal configuration for each reasoning level
 - All variants visible in the opencode model selector
 - Required metadata for OpenCode features to work properly
@@ -379,16 +471,19 @@ If you want to customize settings yourself, you can configure options at provide
 
 #### Available Settings
 
-⚠️ **Important**: The two base models have different supported values.
+⚠️ **Important**: Families have different supported values.
 
-| Setting | GPT-5 Values | GPT-5-Codex Values | Plugin Default |
-|---------|-------------|-------------------|----------------|
-| `reasoningEffort` | `minimal`, `low`, `medium`, `high` | `low`, `medium`, `high` | `medium` |
-| `reasoningSummary` | `auto`, `detailed` | `auto`, `detailed` | `auto` |
-| `textVerbosity` | `low`, `medium`, `high` | `medium` only | `medium` |
-| `include` | Array of strings | Array of strings | `["reasoning.encrypted_content"]` |
+| Setting | GPT-5 / GPT-5.1 Values | GPT-5.1-Codex Values | GPT-5.1-Codex-Max Values | Plugin Default |
+|---------|-----------------------|----------------------|---------------------------|----------------|
+| `reasoningEffort` | `minimal`, `low`, `medium`, `high` | `low`, `medium`, `high` | `none`, `low`, `medium`, `high`, `xhigh` | `medium` (global), `high` default for Codex Max |
+| `reasoningSummary` | `auto`, `concise`, `detailed` | `auto`, `concise`, `detailed` | `auto`, `concise`, `detailed`, `off`, `on` | `auto` |
+| `textVerbosity` | `low`, `medium`, `high` | `medium` or `high` | `medium` or `high` | `medium` |
+| `include` | Array of strings | Array of strings | Array of strings | `["reasoning.encrypted_content"]` |
 
-> **Note**: `minimal` effort is auto-normalized to `low` for gpt-5-codex (not supported by the API).
+> **Notes**:
+> - `minimal` effort is auto-normalized to `low` for Codex models.
+> - Codex Mini clamps to `medium`/`high`; `xhigh` downgrades to `high`.
+> - Codex Max supports `none`/`xhigh` plus extended reasoning options while keeping the same 272k context / 128k output limits.
 
 #### Global Configuration Example
 
