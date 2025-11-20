@@ -1065,4 +1065,60 @@ describe('Request Transformer Module', () => {
 			});
 		});
 	});
+
+	describe('Codex Max Support', () => {
+		describe('normalizeModel', () => {
+			it('should normalize gpt-5.1-codex-max', async () => {
+				expect(normalizeModel('gpt-5.1-codex-max')).toBe('gpt-5.1-codex-max');
+			});
+
+			it('should normalize gpt-5.1-codex-max variants', async () => {
+				expect(normalizeModel('gpt-5.1-codex-max-low')).toBe('gpt-5.1-codex-max');
+				expect(normalizeModel('gpt-5.1-codex-max-medium')).toBe('gpt-5.1-codex-max');
+				expect(normalizeModel('gpt-5.1-codex-max-high')).toBe('gpt-5.1-codex-max');
+				expect(normalizeModel('gpt-5.1-codex-max-xhigh')).toBe('gpt-5.1-codex-max');
+			});
+
+			it('should normalize pattern matched max variants', async () => {
+				expect(normalizeModel('gpt 5.1 codex max')).toBe('gpt-5.1-codex-max');
+				expect(normalizeModel('GPT-5.1-CODEX-MAX')).toBe('gpt-5.1-codex-max');
+			});
+		});
+
+		describe('transformRequestBody', () => {
+			const codexInstructions = 'Test Codex Instructions';
+
+			it('should handle gpt-5.1-codex-max with xhigh effort', async () => {
+				const body: RequestBody = {
+					model: 'gpt-5.1-codex-max',
+					input: [],
+				};
+				const userConfig: UserConfig = {
+					global: {},
+					models: {
+						'gpt-5.1-codex-max': {
+							options: { reasoningEffort: 'xhigh' }
+						}
+					}
+				};
+
+				const result = await transformRequestBody(body, codexInstructions, userConfig);
+
+				expect(result.model).toBe('gpt-5.1-codex-max');
+				expect(result.reasoning?.effort).toBe('xhigh');
+			});
+
+			it('should default to medium effort for gpt-5.1-codex-max', async () => {
+				const body: RequestBody = {
+					model: 'gpt-5.1-codex-max',
+					input: [],
+				};
+
+				const result = await transformRequestBody(body, codexInstructions);
+
+				expect(result.model).toBe('gpt-5.1-codex-max');
+				expect(result.reasoning?.effort).toBe('medium');
+			});
+		});
+	});
 });

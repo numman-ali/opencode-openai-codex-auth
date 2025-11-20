@@ -38,7 +38,15 @@ export function normalizeModel(model: string | undefined): string {
 	const normalized = modelId.toLowerCase();
 
 	// Priority order for pattern matching (most specific first):
-	// 1. GPT-5.1 Codex Mini
+	// 1. GPT-5.1 Codex Max
+	if (
+		normalized.includes("gpt-5.1-codex-max") ||
+		normalized.includes("gpt 5.1 codex max")
+	) {
+		return "gpt-5.1-codex-max";
+	}
+
+	// 2. GPT-5.1 Codex Mini
 	if (
 		normalized.includes("gpt-5.1-codex-mini") ||
 		normalized.includes("gpt 5.1 codex mini")
@@ -46,7 +54,7 @@ export function normalizeModel(model: string | undefined): string {
 		return "gpt-5.1-codex-mini";
 	}
 
-	// 2. Legacy Codex Mini
+	// 3. Legacy Codex Mini
 	if (
 		normalized.includes("codex-mini-latest") ||
 		normalized.includes("gpt-5-codex-mini") ||
@@ -129,7 +137,7 @@ export function getReasoningConfig(
 			normalizedOriginal.includes("mini"));
 
 	// Default based on model type (Codex CLI defaults)
-	const defaultEffort: "minimal" | "low" | "medium" | "high" = isCodexMini
+	const defaultEffort: "minimal" | "low" | "medium" | "high" | "xhigh" = isCodexMini
 		? "medium"
 		: isLightweight
 			? "minimal"

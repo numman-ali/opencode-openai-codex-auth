@@ -13,6 +13,15 @@
  */
 export const MODEL_MAP: Record<string, string> = {
 	// ============================================================================
+	// GPT-5.1 Codex Max Models
+	// ============================================================================
+	"gpt-5.1-codex-max": "gpt-5.1-codex-max",
+	"gpt-5.1-codex-max-low": "gpt-5.1-codex-max",
+	"gpt-5.1-codex-max-medium": "gpt-5.1-codex-max",
+	"gpt-5.1-codex-max-high": "gpt-5.1-codex-max",
+	"gpt-5.1-codex-max-xhigh": "gpt-5.1-codex-max",
+
+	// ============================================================================
 	// GPT-5.1 Codex Models
 	// ============================================================================
 	"gpt-5.1-codex": "gpt-5.1-codex",
