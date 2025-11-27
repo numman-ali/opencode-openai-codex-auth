@@ -270,9 +270,13 @@ export async function handleErrorResponse(
 
 	const headers = new Headers(response.headers);
 	headers.set("content-type", "application/json; charset=utf-8");
+	// Map 404 to 429 to trigger opencode retries
+	const status = response.status === 404 ? 429 : response.status;
+	const statusText = response.status === 404 ? "Too Many Requests" : response.statusText;
+
 	return new Response(enriched, {
-		status: response.status,
-		statusText: response.statusText,
+		status,
+		statusText,
 		headers,
 	});
 }
