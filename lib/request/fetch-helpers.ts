@@ -215,6 +215,8 @@ export async function handleErrorResponse(
 	const raw = await response.text();
 
 	let enriched = raw;
+	let isUsageLimitError = false;
+	let mappedStatus = response.status;
 	try {
 		const parsed = JSON.parse(raw) as any;
 		const err = parsed?.error ?? {};
@@ -241,11 +243,16 @@ export async function handleErrorResponse(
 		const resetsAt = err.resets_at ?? primary.resets_at ?? secondary.resets_at;
 		const mins = resetsAt ? Math.max(0, Math.round((resetsAt * 1000 - Date.now()) / 60000)) : undefined;
 		let friendly_message: string | undefined;
-		if (/usage_limit_reached|usage_not_included|rate_limit_exceeded/i.test(code) || response.status === 429) {
+		isUsageLimitError =
+			/usage_limit_reached|usage_not_included|rate_limit_exceeded/i.test(code) ||
+			response.status === 429;
+		if (isUsageLimitError) {
 			const plan = err.plan_type ? ` (${String(err.plan_type).toLowerCase()} plan)` : "";
 			const when = mins !== undefined ? ` Try again in ~${mins} min.` : "";
 			friendly_message = `You have hit your ChatGPT usage limit${plan}.${when}`.trim();
 		}
+
+		mappedStatus = isUsageLimitError ? 429 : response.status;
 
 		const enhanced = {
 			error: {
@@ -253,7 +260,8 @@ export async function handleErrorResponse(
 				message: err.message ?? friendly_message ?? "Usage limit reached.",
 				friendly_message,
 				rate_limits,
-				status: response.status,
+				status: mappedStatus,
+				original_status: response.status,
 			},
 		};
 		enriched = JSON.stringify(enhanced);
@@ -271,8 +279,8 @@ export async function handleErrorResponse(
 	const headers = new Headers(response.headers);
 	headers.set("content-type", "application/json; charset=utf-8");
 	return new Response(enriched, {
-		status: response.status,
-		statusText: response.statusText,
+		status: mappedStatus,
+		statusText: isUsageLimitError ? "Too Many Requests" : response.statusText,
 		headers,
 	});
 }

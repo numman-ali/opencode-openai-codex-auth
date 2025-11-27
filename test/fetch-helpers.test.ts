@@ -111,10 +111,32 @@ describe('Fetch Helpers Module', () => {
         expect(enriched.status).toBe(429);
         const json = await enriched.json() as any;
         expect(json.error).toBeTruthy();
+        expect(json.error.status).toBe(429);
+        expect(json.error.original_status).toBe(429);
         expect(json.error.friendly_message).toMatch(/usage limit/i);
         expect(json.error.rate_limits.primary.used_percent).toBe(75);
         expect(json.error.rate_limits.primary.window_minutes).toBe(300);
         expect(typeof json.error.rate_limits.primary.resets_at).toBe('number');
+    });
+
+    it('maps 404 usage_limit_reached errors to 429 with friendly message', async () => {
+        const body = {
+            error: {
+                code: 'usage_limit_reached',
+                message: 'limit reached',
+                plan_type: 'pro',
+            },
+        };
+        const headers = new Headers();
+        const resp = new Response(JSON.stringify(body), { status: 404, headers });
+        const enriched = await handleErrorResponse(resp);
+
+        expect(enriched.status).toBe(429);
+        const json = await enriched.json() as any;
+        expect(json.error).toBeTruthy();
+        expect(json.error.status).toBe(429);
+        expect(json.error.original_status).toBe(404);
+        expect(json.error.friendly_message).toMatch(/usage limit/i);
     });
 
 		it('should remove x-api-key header', () => {
