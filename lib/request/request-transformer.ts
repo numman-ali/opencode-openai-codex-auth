@@ -443,8 +443,8 @@ export async function transformRequestBody(
 		}
 
 		// Filter orphaned function_call_output items (where function_call was an item_reference that got filtered)
-		// Keep matched pairs for compaction context
-		if (!body.tools && body.input) {
+		// Keep matched pairs for compaction context but drop unmatched outputs to avoid Codex API 400 errors
+		if (body.input) {
 			// Collect all call_ids from function_call items
 			const functionCallIds = new Set(
 				body.input
@@ -454,7 +454,10 @@ export async function transformRequestBody(
 			// Only filter function_call_output items that don't have a matching function_call
 			body.input = body.input.filter((item) => {
 				if (item.type === "function_call_output") {
-					return functionCallIds.has(item.call_id);
+					return (
+						typeof item.call_id === "string" &&
+						functionCallIds.has(item.call_id)
+					);
 				}
 				return true;
 			});
