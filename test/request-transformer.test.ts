@@ -881,6 +881,49 @@ describe('Request Transformer Module', () => {
 			expect(result.input![2].type).toBe('function_call_output');
 		});
 
+		it('should drop orphaned function_call_output even when tools are present', async () => {
+			const body: RequestBody = {
+				model: 'gpt-5-codex',
+				input: [
+					{ type: 'message', role: 'user', content: 'hello' },
+					{ type: 'function_call_output', role: 'assistant', call_id: 'call_ghost', output: '{}' } as any,
+				],
+				tools: [{ name: 'task' }],
+			};
+
+			const result = await transformRequestBody(body, codexInstructions);
+
+			expect(result.input).toBeDefined();
+			const outputs = result.input!.filter(
+				(item) => item.type === 'function_call_output',
+			);
+			expect(outputs).toHaveLength(0);
+		});
+
+		it('should keep matched function_call pairs when tools are present', async () => {
+			const body: RequestBody = {
+				model: 'gpt-5-codex',
+				input: [
+					{ type: 'message', role: 'user', content: 'hello' },
+					{ type: 'function_call', call_id: 'call_keep', name: 'task', arguments: '{}' } as any,
+					{ type: 'function_call_output', call_id: 'call_keep', output: 'success' } as any,
+				],
+				tools: [{ name: 'task' }],
+			};
+
+			const result = await transformRequestBody(body, codexInstructions);
+
+			expect(result.input).toBeDefined();
+			const outputs = result.input!.filter(
+				(item) => item.type === 'function_call_output',
+			);
+			expect(outputs).toHaveLength(1);
+			const calls = result.input!.filter(
+				(item) => item.type === 'function_call' && item.call_id === 'call_keep',
+			);
+			expect(calls).toHaveLength(1);
+		});
+
 		describe('CODEX_MODE parameter', () => {
 			it('should use bridge message when codexMode=true and tools present (default)', async () => {
 				const body: RequestBody = {
