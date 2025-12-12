@@ -825,6 +825,62 @@ describe('Request Transformer Module', () => {
 			expect(result.reasoning?.effort).toBe('high');
 		});
 
+		it('should preserve none for GPT-5.2', async () => {
+			const body: RequestBody = {
+				model: 'gpt-5.2-none',
+				input: [],
+			};
+			const userConfig: UserConfig = {
+				global: { reasoningEffort: 'none' },
+				models: {},
+			};
+			const result = await transformRequestBody(body, codexInstructions, userConfig);
+			expect(result.model).toBe('gpt-5.2');
+			expect(result.reasoning?.effort).toBe('none');
+		});
+
+		it('should preserve none for GPT-5.1 general purpose', async () => {
+			const body: RequestBody = {
+				model: 'gpt-5.1-none',
+				input: [],
+			};
+			const userConfig: UserConfig = {
+				global: { reasoningEffort: 'none' },
+				models: {},
+			};
+			const result = await transformRequestBody(body, codexInstructions, userConfig);
+			expect(result.model).toBe('gpt-5.1');
+			expect(result.reasoning?.effort).toBe('none');
+		});
+
+		it('should upgrade none to low for GPT-5.1-codex (codex does not support none)', async () => {
+			const body: RequestBody = {
+				model: 'gpt-5.1-codex',
+				input: [],
+			};
+			const userConfig: UserConfig = {
+				global: { reasoningEffort: 'none' },
+				models: {},
+			};
+			const result = await transformRequestBody(body, codexInstructions, userConfig);
+			expect(result.model).toBe('gpt-5.1-codex');
+			expect(result.reasoning?.effort).toBe('low');
+		});
+
+		it('should upgrade none to low for GPT-5.1-codex-max (codex max does not support none)', async () => {
+			const body: RequestBody = {
+				model: 'gpt-5.1-codex-max',
+				input: [],
+			};
+			const userConfig: UserConfig = {
+				global: { reasoningEffort: 'none' },
+				models: {},
+			};
+			const result = await transformRequestBody(body, codexInstructions, userConfig);
+			expect(result.model).toBe('gpt-5.1-codex-max');
+			expect(result.reasoning?.effort).toBe('low');
+		});
+
 		it('should preserve minimal for non-codex models', async () => {
 			const body: RequestBody = {
 				model: 'gpt-5',

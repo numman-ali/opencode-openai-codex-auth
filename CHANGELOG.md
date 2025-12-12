@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here. Dates use the ISO format (YYYY-MM-DD).
 
+## [4.1.1] - 2025-12-11
+
+**Minor release**: "none" reasoning effort support for GPT-5.2 and GPT-5.1.
+
+### Added
+- **"none" reasoning effort support**: GPT-5.1 and GPT-5.2 support `reasoning_effort: "none"` which disables the reasoning phase entirely. This can result in faster responses when reasoning is not needed.
+  - `gpt-5.2-none` - GPT-5.2 with reasoning disabled
+  - `gpt-5.1-none` - GPT-5.1 with reasoning disabled
+- **4 new unit tests** for "none" reasoning behavior (now 197 total unit tests).
+
+### Technical Details
+- `getReasoningConfig()` now detects GPT-5.1 general purpose models (not Codex variants) and allows "none" to pass through.
+- GPT-5.2 inherits "none" support as it's newer than GPT-5.1.
+- Codex variants (gpt-5.1-codex, gpt-5.1-codex-max, gpt-5.1-codex-mini) do NOT support "none":
+  - Codex and Codex Max: "none" auto-converts to "low"
+  - Codex Mini: "none" auto-converts to "medium" (as before)
+- Documentation updated with complete reasoning effort support matrix per model family.
+
+### References
+- **OpenAI API docs** (`platform.openai.com/docs/api-reference/chat/create`): "gpt-5.1 defaults to none, which does not perform reasoning. The supported reasoning values for gpt-5.1 are none, low, medium, and high."
+- **Codex CLI** (`codex-rs/protocol/src/openai_models.rs`): `ReasoningEffort` enum includes `None` variant with `#[serde(rename_all = "lowercase")]` serialization to `"none"`.
+- **Codex CLI** (`codex-rs/core/src/client.rs`): Request builder passes `ReasoningEffort::None` through to API without validation/rejection.
+- **Codex CLI** (`docs/config.md`): Documents `model_reasoning_effort = "none"` as valid config option.
+
+### Notes
+- This plugin defaults to "medium" for better coding assistance; users must explicitly set "none" if desired.
+
 ## [4.1.0] - 2025-12-11
 
 **Feature release**: GPT 5.2 model support and image input capabilities.

@@ -46,28 +46,35 @@ Complete reference for configuring the OpenCode OpenAI Codex Auth Plugin.
 
 Controls computational effort for reasoning.
 
-**GPT-5 Values:**
-- `minimal` - Fastest, least reasoning
+**GPT-5.2 Values** (per OpenAI API docs and Codex CLI `ReasoningEffort` enum):
+- `none` - No dedicated reasoning phase (disables reasoning)
+- `low` - Light reasoning
+- `medium` - Balanced (default)
+- `high` - Deep reasoning
+- `xhigh` - Extra depth for long-horizon tasks
+
+**GPT-5.1 Values** (per OpenAI API docs and Codex CLI `ReasoningEffort` enum):
+- `none` - No dedicated reasoning phase (disables reasoning)
 - `low` - Light reasoning
 - `medium` - Balanced (default)
 - `high` - Deep reasoning
 
-**GPT-5-Codex Values:**
+**GPT-5.1-Codex / GPT-5.1-Codex-Max Values:**
 - `low` - Fastest for code
 - `medium` - Balanced (default)
 - `high` - Maximum code quality
+- `xhigh` - Extra depth (Codex Max only)
 
-**GPT-5.1-Codex-Max Values:**
-- `none` - No dedicated reasoning phase
-- `low` - Light reasoning
-- `medium` - Balanced
-- `high` - Deep reasoning (default for this family)
-- `xhigh` - Extra depth for long-horizon tasks
+**GPT-5.1-Codex-Mini Values:**
+- `medium` - Balanced (default)
+- `high` - Maximum code quality
 
 **Notes**:
+- `none` is supported for GPT-5.2 and GPT-5.1 (general purpose) per OpenAI API documentation
+- `none` is NOT supported for Codex variants - it auto-converts to `low` for Codex or `medium` for Codex Mini
 - `minimal` auto-converts to `low` for Codex models
-- `gpt-5-codex-mini*` and `gpt-5.1-codex-mini*` only support `medium` or `high`; lower settings are clamped to `medium` and `xhigh` downgrades to `high`
-- Codex Max supports `none` and `xhigh` and defaults to `high` when not specified
+- `xhigh` is only supported for GPT-5.2 and GPT-5.1-Codex-Max; other models downgrade to `high`
+- Codex Mini only supports `medium` or `high`; lower settings clamp to `medium`
 
 **Example:**
 ```json
