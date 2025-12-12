@@ -454,7 +454,9 @@ export async function transformRequestBody(
 
 		// Filter orphaned function_call_output items (where function_call was an item_reference that got filtered)
 		// Keep matched pairs for compaction context
-		if (!body.tools && body.input) {
+		// NOTE: Always filter orphans regardless of tools presence - item_reference filtering can remove
+		// function_call items from conversation history even when current request has tools
+		if (body.input) {
 			// Collect all call_ids from function_call items
 			const functionCallIds = new Set(
 				body.input
