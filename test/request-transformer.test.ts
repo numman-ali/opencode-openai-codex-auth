@@ -847,20 +847,23 @@ describe('Request Transformer Module', () => {
 			expect(result.reasoning?.effort).toBe('medium');
 		});
 
-		it('should drop orphaned function_call_output when no tools present', async () => {
+		it('should convert orphaned function_call_output to message to preserve context', async () => {
 			const body: RequestBody = {
 				model: 'gpt-5-codex',
 				input: [
 					{ type: 'message', role: 'user', content: 'hello' },
-					{ type: 'function_call_output', role: 'assistant', call_id: 'orphan_call', output: '{}' } as any,
+					{ type: 'function_call_output', role: 'assistant', call_id: 'orphan_call', name: 'read', output: '{}' } as any,
 				],
 			};
 
 			const result = await transformRequestBody(body, codexInstructions);
 
 			expect(result.tools).toBeUndefined();
-			expect(result.input).toHaveLength(1);
+			expect(result.input).toHaveLength(2);
 			expect(result.input![0].type).toBe('message');
+			expect(result.input![1].type).toBe('message');
+			expect(result.input![1].role).toBe('assistant');
+			expect(result.input![1].content).toContain('[Previous read result; call_id=orphan_call]');
 		});
 
 		it('should keep matched function_call pairs when no tools present (for compaction)', async () => {

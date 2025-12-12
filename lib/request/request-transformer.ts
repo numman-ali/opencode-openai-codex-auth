@@ -452,23 +452,36 @@ export async function transformRequestBody(
 			body.input = addToolRemapMessage(body.input, !!body.tools);
 		}
 
-		// Filter orphaned function_call_output items (where function_call was an item_reference that got filtered)
-		// Keep matched pairs for compaction context
-		// NOTE: Always filter orphans regardless of tools presence - item_reference filtering can remove
-		// function_call items from conversation history even when current request has tools
+		// Handle orphaned function_call_output items (where function_call was an item_reference that got filtered)
+		// Instead of removing orphans (which causes infinite loops as LLM loses tool results),
+		// convert them to messages to preserve context while avoiding API errors
 		if (body.input) {
-			// Collect all call_ids from function_call items
 			const functionCallIds = new Set(
 				body.input
 					.filter((item) => item.type === "function_call" && item.call_id)
 					.map((item) => item.call_id),
 			);
-			// Only filter function_call_output items that don't have a matching function_call
-			body.input = body.input.filter((item) => {
-				if (item.type === "function_call_output") {
-					return functionCallIds.has(item.call_id);
+			body.input = body.input.map((item) => {
+				if (item.type === "function_call_output" && !functionCallIds.has(item.call_id)) {
+					const toolName = typeof (item as any).name === "string" ? (item as any).name : "tool";
+					const callId = (item as any).call_id ?? "";
+					let text: string;
+					try {
+						const out = (item as any).output;
+						text = typeof out === "string" ? out : JSON.stringify(out);
+					} catch {
+						text = String((item as any).output ?? "");
+					}
+					if (text.length > 16000) {
+						text = text.slice(0, 16000) + "\n...[truncated]";
+					}
+					return {
+						type: "message",
+						role: "assistant",
+						content: `[Previous ${toolName} result; call_id=${callId}]: ${text}`,
+					} as InputItem;
 				}
-				return true;
+				return item;
 			});
 		}
 	}
