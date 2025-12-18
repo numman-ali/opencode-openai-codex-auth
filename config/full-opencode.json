@@ -15,6 +15,106 @@
         "store": false
       },
       "models": {
+        "gpt-5.2-codex-low": {
+          "name": "GPT 5.2 Codex Low (OAuth)",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "options": {
+            "reasoningEffort": "low",
+            "reasoningSummary": "auto",
+            "textVerbosity": "medium",
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "store": false
+          }
+        },
+        "gpt-5.2-codex-medium": {
+          "name": "GPT 5.2 Codex Medium (OAuth)",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "options": {
+            "reasoningEffort": "medium",
+            "reasoningSummary": "auto",
+            "textVerbosity": "medium",
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "store": false
+          }
+        },
+        "gpt-5.2-codex-high": {
+          "name": "GPT 5.2 Codex High (OAuth)",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "options": {
+            "reasoningEffort": "high",
+            "reasoningSummary": "detailed",
+            "textVerbosity": "medium",
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "store": false
+          }
+        },
+        "gpt-5.2-codex-xhigh": {
+          "name": "GPT 5.2 Codex Extra High (OAuth)",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "options": {
+            "reasoningEffort": "xhigh",
+            "reasoningSummary": "detailed",
+            "textVerbosity": "medium",
+            "include": [
+              "reasoning.encrypted_content"
+            ],
+            "store": false
+          }
+        },
         "gpt-5.2-none": {
           "name": "GPT 5.2 None (OAuth)",
           "limit": {
