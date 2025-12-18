@@ -43,6 +43,16 @@ describe("Codex Module", () => {
 			});
 		});
 
+		describe("GPT-5.2 families", () => {
+			it("should return gpt-5.2 for gpt-5.2", () => {
+				expect(getModelFamily("gpt-5.2")).toBe("gpt-5.2");
+			});
+
+			it("should return gpt-5.2-codex for gpt-5.2-codex", () => {
+				expect(getModelFamily("gpt-5.2-codex")).toBe("gpt-5.2-codex");
+			});
+		});
+
 		describe("GPT-5.1 general family", () => {
 			it("should return gpt-5.1 for gpt-5.1", () => {
 				expect(getModelFamily("gpt-5.1")).toBe("gpt-5.1");

@@ -38,12 +38,20 @@ export function normalizeModel(model: string | undefined): string {
 	const normalized = modelId.toLowerCase();
 
 	// Priority order for pattern matching (most specific first):
-	// 1. GPT-5.2 (supports same reasoning as Codex Max)
+	// 1. GPT-5.2 Codex
+	if (
+		normalized.includes("gpt-5.2-codex") ||
+		normalized.includes("gpt 5.2 codex")
+	) {
+		return "gpt-5.2-codex";
+	}
+
+	// 2. GPT-5.2 (supports same reasoning as Codex Max)
 	if (normalized.includes("gpt-5.2") || normalized.includes("gpt 5.2")) {
 		return "gpt-5.2";
 	}
 
-	// 2. GPT-5.1 Codex Max
+	// 3. GPT-5.1 Codex Max
 	if (
 		normalized.includes("gpt-5.1-codex-max") ||
 		normalized.includes("gpt 5.1 codex max")
@@ -161,7 +169,12 @@ export function getReasoningConfig(
 	// - Codex CLI: ReasoningEffort enum includes None variant (codex-rs/protocol/src/openai_models.rs)
 	// - Codex CLI: docs/config.md lists "none" as valid for model_reasoning_effort
 	// - gpt-5.2 (being newer) also supports: none, low, medium, high, xhigh
-	const supportsNone = isGpt52 || isGpt51General;
+	//
+	// IMPORTANT: Codex variants (including gpt-5.2-codex) do NOT support "none".
+	// We only allow "none" for general-purpose GPT-5.2 models (no "codex" in slug)
+	// and GPT-5.1 general models.
+	const supportsNone =
+		((isGpt52 && !isCodex && !isCodexMax && !isCodexMini) || isGpt51General);
 
 	// Default based on model type (Codex CLI defaults)
 	// Note: OpenAI docs say gpt-5.1 defaults to "none", but we default to "medium"

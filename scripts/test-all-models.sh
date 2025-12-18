@@ -175,13 +175,19 @@ test_model "gpt-5.1-codex-max-high"   "gpt-5.1-codex-max"   "codex-max"  "high" 
 test_model "gpt-5.1-codex-max-xhigh"  "gpt-5.1-codex-max"   "codex-max"  "xhigh"   "detailed" "medium"
 
 # GPT 5.2 presets (supports none/low/medium/high/xhigh per OpenAI API docs)
-test_model "gpt-5.2-none"   "gpt-5.2"   "gpt-5.2"  "none"    "auto"     "medium"
-test_model "gpt-5.2-low"    "gpt-5.2"   "gpt-5.2"  "low"     "auto"     "medium"
-test_model "gpt-5.2-medium" "gpt-5.2"   "gpt-5.2"  "medium"  "auto"     "medium"
-test_model "gpt-5.2-high"   "gpt-5.2"   "gpt-5.2"  "high"    "detailed" "medium"
-test_model "gpt-5.2-xhigh"  "gpt-5.2"   "gpt-5.2"  "xhigh"   "detailed" "medium"
-
-# GPT 5.1 Codex Mini presets (medium/high only)
+ test_model "gpt-5.2-none"   "gpt-5.2"   "gpt-5.2"  "none"    "auto"     "medium"
+ test_model "gpt-5.2-low"    "gpt-5.2"   "gpt-5.2"  "low"     "auto"     "medium"
+ test_model "gpt-5.2-medium" "gpt-5.2"   "gpt-5.2"  "medium"  "auto"     "medium"
+ test_model "gpt-5.2-high"   "gpt-5.2"   "gpt-5.2"  "high"    "detailed" "medium"
+ test_model "gpt-5.2-xhigh"  "gpt-5.2"   "gpt-5.2"  "xhigh"   "detailed" "medium"
+ 
+ # GPT 5.2 Codex presets
+ test_model "gpt-5.2-codex-low"    "gpt-5.2-codex" "gpt-5.2-codex" "low"    "detailed" "medium"
+ test_model "gpt-5.2-codex-medium" "gpt-5.2-codex" "gpt-5.2-codex" "medium" "detailed" "medium"
+ test_model "gpt-5.2-codex-high"   "gpt-5.2-codex" "gpt-5.2-codex" "high"   "detailed" "medium"
+ test_model "gpt-5.2-codex-xhigh"  "gpt-5.2-codex" "gpt-5.2-codex" "xhigh"  "detailed" "medium"
+ 
+ # GPT 5.1 Codex Mini presets (medium/high only)
 test_model "gpt-5.1-codex-mini-medium" "gpt-5.1-codex-mini" "codex"      "medium"  "auto"     "medium"
 test_model "gpt-5.1-codex-mini-high"   "gpt-5.1-codex-mini" "codex"      "high"    "detailed" "medium"
 

@@ -94,6 +94,12 @@ describe('Request Transformer Module', () => {
 				expect(normalizeModel('openai/gpt-5.1')).toBe('gpt-5.1');
 				expect(normalizeModel('GPT 5.1 High')).toBe('gpt-5.1');
 			});
+
+			it('should normalize gpt-5.2 codex presets', async () => {
+				expect(normalizeModel('gpt-5.2-codex')).toBe('gpt-5.2-codex');
+				expect(normalizeModel('gpt-5.2-codex-high')).toBe('gpt-5.2-codex');
+				expect(normalizeModel('openai/gpt-5.2-codex-xhigh')).toBe('gpt-5.2-codex');
+			});
 		});
 
 		// Edge case tests - legacy gpt-5 models now map to gpt-5.1
@@ -797,6 +803,25 @@ describe('Request Transformer Module', () => {
 			expect(result.reasoning?.summary).toBe('detailed');
 		});
 
+		it('should preserve xhigh for GPT-5.2-Codex when requested', async () => {
+			const body: RequestBody = {
+				model: 'gpt-5.2-codex-xhigh',
+				input: [],
+			};
+			const userConfig: UserConfig = {
+				global: { reasoningSummary: 'auto' },
+				models: {
+					'gpt-5.2-codex-xhigh': {
+						options: { reasoningEffort: 'xhigh', reasoningSummary: 'detailed' },
+					},
+				},
+			};
+			const result = await transformRequestBody(body, codexInstructions, userConfig);
+			expect(result.model).toBe('gpt-5.2-codex');
+			expect(result.reasoning?.effort).toBe('xhigh');
+			expect(result.reasoning?.summary).toBe('detailed');
+		});
+
 		it('should downgrade xhigh to high for non-max codex', async () => {
 			const body: RequestBody = {
 				model: 'gpt-5.1-codex-high',
@@ -837,6 +862,20 @@ describe('Request Transformer Module', () => {
 			const result = await transformRequestBody(body, codexInstructions, userConfig);
 			expect(result.model).toBe('gpt-5.2');
 			expect(result.reasoning?.effort).toBe('none');
+		});
+
+		it('should upgrade none to low for GPT-5.2-Codex (codex does not support none)', async () => {
+			const body: RequestBody = {
+				model: 'gpt-5.2-codex-low',
+				input: [],
+			};
+			const userConfig: UserConfig = {
+				global: { reasoningEffort: 'none' },
+				models: {},
+			};
+			const result = await transformRequestBody(body, codexInstructions, userConfig);
+			expect(result.model).toBe('gpt-5.2-codex');
+			expect(result.reasoning?.effort).toBe('low');
 		});
 
 		it('should preserve none for GPT-5.1 general purpose', async () => {
