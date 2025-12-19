@@ -216,14 +216,17 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 					label: AUTH_LABELS.OAUTH,
 					type: "oauth" as const,
 					/**
-					 * OAuth authorization flow
+					 * OAuth authorization flow with automatic localhost callback
 					 *
 					 * Steps:
 					 * 1. Generate PKCE challenge and state for security
 					 * 2. Start local OAuth callback server on port 1455
 					 * 3. Open browser to OpenAI authorization page
-					 * 4. Wait for user to complete login
+					 * 4. Wait for callback to localhost server
 					 * 5. Exchange authorization code for tokens
+					 *
+					 * This is the default flow that works when the browser can
+					 * reach localhost:1455. If this fails, use the manual paste option.
 					 *
 					 * @returns Authorization flow configuration
 					 */
@@ -248,6 +251,58 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 
 								const tokens = await exchangeAuthorizationCode(
 									result.code,
+									pkce.verifier,
+									REDIRECT_URI,
+								);
+
+								return tokens?.type === "success"
+									? tokens
+									: { type: "failed" as const };
+							},
+						};
+					},
+				},
+				{
+					label: "ChatGPT Plus/Pro (Manual URL Paste)",
+					type: "oauth" as const,
+					/**
+					 * OAuth authorization flow with manual URL paste
+					 *
+					 * Steps:
+					 * 1. Generate PKCE challenge and state for security
+					 * 2. Open browser to OpenAI authorization page
+					 * 3. User completes login and copies redirect URL
+					 * 4. User pastes URL back into terminal
+					 * 5. Exchange authorization code for tokens
+					 *
+					 * Use this flow when localhost callbacks don't work:
+					 * - Remote servers (SSH)
+					 * - Containers/Docker
+					 * - WSL without localhost forwarding
+					 *
+					 * @returns Authorization flow configuration
+					 */
+					authorize: async () => {
+						const { pkce, state, url } = await createAuthorizationFlow();
+
+						// Attempt to open browser automatically
+						openBrowserUrl(url);
+
+						return {
+							url,
+							method: "code" as const,
+							instructions: "1. Open the URL above in your browser and complete login.\n2. After login, your browser will redirect to localhost (which may fail to load).\n3. Copy the FULL URL from your browser's address bar and paste it below.\n   (It looks like: http://localhost:1455/auth/callback?code=...&state=...)",
+							callback: async (input: string) => {
+								const { parseAuthorizationInput } = await import("./lib/auth/auth.js");
+								const parsed = parseAuthorizationInput(input);
+
+								if (!parsed.code) {
+									console.error("[openai-codex-plugin] No authorization code found in input");
+									return { type: "failed" as const };
+								}
+
+								const tokens = await exchangeAuthorizationCode(
+									parsed.code,
 									pkce.verifier,
 									REDIRECT_URI,
 								);
