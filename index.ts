@@ -283,7 +283,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 					 * @returns Authorization flow configuration
 					 */
 					authorize: async () => {
-						const { pkce, state, url } = await createAuthorizationFlow();
+						const { pkce, url } = await createAuthorizationFlow();
 
 						// Attempt to open browser automatically
 						openBrowserUrl(url);
