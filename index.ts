@@ -301,6 +301,13 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 									return { type: "failed" as const };
 								}
 
+								// Validate state parameter to prevent CSRF and authorization code substitution
+								if (!parsed.state || parsed.state !== state) {
+									console.error(
+										"[openai-codex-plugin] Invalid or missing state parameter in authorization response",
+									);
+									return { type: "failed" as const };
+								}
 								const tokens = await exchangeAuthorizationCode(
 									parsed.code,
 									pkce.verifier,
