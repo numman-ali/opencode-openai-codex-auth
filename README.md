@@ -86,7 +86,7 @@ OpenCode will detect the version mismatch and install the new version automatica
 If you previously used an unpinned version, clear the cache:
 
 ```bash
-rm -rf ~/.cache/opencode/node_modules ~/.cache/opencode/bun.lock
+rm -rf ~/.cache/opencode
 ```
 
 Then restart OpenCode with a pinned version in your config.
@@ -113,7 +113,7 @@ If you’re using an AI agent (Codex/Claude/etc.) to install or update this plug
 cp <repo>/config/full-opencode.json ~/.config/opencode/opencode.json
 
 # 3) Refresh OpenCode plugin cache
-rm -rf ~/.cache/opencode/node_modules ~/.cache/opencode/bun.lock
+rm -rf ~/.cache/opencode
 
 # 4) Optional sanity check for GPT-5.2-Codex presets
 jq '.provider.openai.models | keys | map(select(startswith("gpt-5.2-codex")))' \
