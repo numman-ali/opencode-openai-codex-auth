@@ -93,7 +93,7 @@ describe('Fetch Helpers Module', () => {
 	    expect(headers.get('accept')).toBe('text/event-stream');
     });
 
-    it('enriches usage limit errors with friendly message and rate limits', async () => {
+    it('returns original response for usage limit errors (OpenCode handles display)', async () => {
         const body = {
             error: {
                 code: 'usage_limit_reached',
@@ -107,14 +107,13 @@ describe('Fetch Helpers Module', () => {
             'x-codex-primary-reset-at': String(Math.floor(Date.now() / 1000) + 1800),
         });
         const resp = new Response(JSON.stringify(body), { status: 429, headers });
-        const enriched = await handleErrorResponse(resp);
-        expect(enriched.status).toBe(429);
-        const json = await enriched.json() as any;
-        expect(json.error).toBeTruthy();
-        expect(json.error.friendly_message).toMatch(/usage limit/i);
-        expect(json.error.rate_limits.primary.used_percent).toBe(75);
-        expect(json.error.rate_limits.primary.window_minutes).toBe(300);
-        expect(typeof json.error.rate_limits.primary.resets_at).toBe('number');
+        const result = await handleErrorResponse(resp);
+        // Should return original response with same status
+        expect(result.status).toBe(429);
+        // Body should be preserved (original response, not enriched)
+        const json = await result.json() as any;
+        expect(json.error.code).toBe('usage_limit_reached');
+        expect(json.error.message).toBe('limit reached');
     });
 
 		it('should remove x-api-key header', () => {

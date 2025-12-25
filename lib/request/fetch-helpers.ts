@@ -13,7 +13,6 @@ import { convertSseToJson, ensureContentType } from "./response-handler.js";
 import type { UserConfig, RequestBody } from "../types.js";
 import {
 	PLUGIN_NAME,
-	HTTP_STATUS,
 	OPENAI_HEADERS,
 	OPENAI_HEADER_VALUES,
 	URL_PATHS,
@@ -34,26 +33,18 @@ export function shouldRefreshToken(auth: Auth): boolean {
  * Refreshes the OAuth token and updates stored credentials
  * @param currentAuth - Current auth state
  * @param client - Opencode client for updating stored credentials
- * @returns Updated auth or error response
+ * @returns Updated auth state
+ * @throws Error if token refresh fails
  */
 export async function refreshAndUpdateToken(
 	currentAuth: Auth,
 	client: OpencodeClient,
-): Promise<
-	{ success: true; auth: Auth } | { success: false; response: Response }
-> {
+): Promise<Auth> {
 	const refreshToken = currentAuth.type === "oauth" ? currentAuth.refresh : "";
 	const refreshResult = await refreshAccessToken(refreshToken);
 
 	if (refreshResult.type === "failed") {
-		console.error(`[${PLUGIN_NAME}] ${ERROR_MESSAGES.TOKEN_REFRESH_FAILED}`);
-		return {
-			success: false,
-			response: new Response(
-				JSON.stringify({ error: "Token refresh failed" }),
-				{ status: HTTP_STATUS.UNAUTHORIZED },
-			),
-		};
+		throw new Error(`[${PLUGIN_NAME}] ${ERROR_MESSAGES.TOKEN_REFRESH_FAILED}`);
 	}
 
 	// Update stored credentials
@@ -74,7 +65,7 @@ export async function refreshAndUpdateToken(
 		currentAuth.expires = refreshResult.expires;
 	}
 
-	return { success: true, auth: currentAuth };
+	return currentAuth;
 }
 
 /**
@@ -206,15 +197,18 @@ export function createCodexHeaders(
 
 /**
  * Handles error responses from the Codex API
+ * Logs error details and returns the response for OpenCode/AI SDK to process
  * @param response - Error response from API
- * @returns Response with error details
+ * @returns Original response (AI SDK will convert to APICallError)
  */
 export async function handleErrorResponse(
     response: Response,
 ): Promise<Response> {
-	const raw = await response.text();
+	// Clone response so we can read body for logging while preserving original
+	const cloned = response.clone();
+	const raw = await cloned.text();
 
-	let enriched = raw;
+	let friendly_message: string | undefined;
 	try {
 		const parsed = JSON.parse(raw) as any;
 		const err = parsed?.error ?? {};
@@ -222,59 +216,38 @@ export async function handleErrorResponse(
 		// Parse Codex rate-limit headers if present
 		const h = response.headers;
 		const primary = {
-			used_percent: toNumber(h.get("x-codex-primary-used-percent")),
-			window_minutes: toInt(h.get("x-codex-primary-window-minutes")),
 			resets_at: toInt(h.get("x-codex-primary-reset-at")),
 		};
 		const secondary = {
-			used_percent: toNumber(h.get("x-codex-secondary-used-percent")),
-			window_minutes: toInt(h.get("x-codex-secondary-window-minutes")),
 			resets_at: toInt(h.get("x-codex-secondary-reset-at")),
 		};
-		const rate_limits =
-			primary.used_percent !== undefined || secondary.used_percent !== undefined
-				? { primary, secondary }
-				: undefined;
 
 		// Friendly message for subscription/rate usage limits
 		const code = (err.code ?? err.type ?? "").toString();
 		const resetsAt = err.resets_at ?? primary.resets_at ?? secondary.resets_at;
 		const mins = resetsAt ? Math.max(0, Math.round((resetsAt * 1000 - Date.now()) / 60000)) : undefined;
-		let friendly_message: string | undefined;
 		if (/usage_limit_reached|usage_not_included|rate_limit_exceeded/i.test(code) || response.status === 429) {
 			const plan = err.plan_type ? ` (${String(err.plan_type).toLowerCase()} plan)` : "";
 			const when = mins !== undefined ? ` Try again in ~${mins} min.` : "";
 			friendly_message = `You have hit your ChatGPT usage limit${plan}.${when}`.trim();
 		}
-
-		const enhanced = {
-			error: {
-				...err,
-				message: err.message ?? friendly_message ?? "Usage limit reached.",
-				friendly_message,
-				rate_limits,
-				status: response.status,
-			},
-		};
-		enriched = JSON.stringify(enhanced);
 	} catch {
-		// Raw body not JSON; leave unchanged
-		enriched = raw;
+		// Raw body not JSON; ignore
 	}
 
-    console.error(`[${PLUGIN_NAME}] ${response.status} error:`, enriched);
+	// Log friendly message if available, otherwise status code
+	if (friendly_message) {
+		console.error(`[${PLUGIN_NAME}] ${friendly_message}`);
+	} else {
+		console.error(`[${PLUGIN_NAME}] API error: ${response.status} ${response.statusText}`);
+	}
 	logRequest(LOG_STAGES.ERROR_RESPONSE, {
 		status: response.status,
-		error: enriched,
+		friendly_message,
 	});
 
-	const headers = new Headers(response.headers);
-	headers.set("content-type", "application/json; charset=utf-8");
-	return new Response(enriched, {
-		status: response.status,
-		statusText: response.statusText,
-		headers,
-	});
+	// Return original response - OpenCode/AI SDK will handle HTTP errors
+	return response;
 }
 
 /**
@@ -304,11 +277,6 @@ export async function handleSuccessResponse(
 	});
 }
 
-function toNumber(v: string | null): number | undefined {
-    if (v == null) return undefined;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : undefined;
-}
 function toInt(v: string | null): number | undefined {
     if (v == null) return undefined;
     const n = parseInt(v, 10);
