@@ -1,13 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
     shouldRefreshToken,
+    refreshAndUpdateToken,
     extractRequestUrl,
     rewriteUrlForCodex,
     createCodexHeaders,
     handleErrorResponse,
 } from '../lib/request/fetch-helpers.js';
+import * as authModule from '../lib/auth/auth.js';
 import type { Auth } from '../lib/types.js';
-import { URL_PATHS, OPENAI_HEADERS, OPENAI_HEADER_VALUES } from '../lib/constants.js';
+import { URL_PATHS, OPENAI_HEADERS, OPENAI_HEADER_VALUES, PLUGIN_NAME, ERROR_MESSAGES } from '../lib/constants.js';
 
 describe('Fetch Helpers Module', () => {
 	describe('shouldRefreshToken', () => {
@@ -39,6 +41,64 @@ describe('Fetch Helpers Module', () => {
 				expires: Date.now() + 10000 // valid for 10 seconds
 			};
 			expect(shouldRefreshToken(auth)).toBe(false);
+		});
+	});
+
+	describe('refreshAndUpdateToken', () => {
+		it('should throw error when token refresh fails', async () => {
+			vi.spyOn(authModule, 'refreshAccessToken').mockResolvedValue({ type: 'failed' });
+
+			const auth: Auth = {
+				type: 'oauth',
+				access: 'old-access',
+				refresh: 'old-refresh',
+				expires: Date.now() - 1000,
+			};
+			const mockClient = { auth: { set: vi.fn() } } as any;
+
+			await expect(refreshAndUpdateToken(auth, mockClient)).rejects.toThrow(
+				`[${PLUGIN_NAME}] ${ERROR_MESSAGES.TOKEN_REFRESH_FAILED}`
+			);
+			expect(mockClient.auth.set).not.toHaveBeenCalled();
+
+			vi.restoreAllMocks();
+		});
+
+		it('should update auth and return updated state on success', async () => {
+			const newTokens = {
+				type: 'success' as const,
+				access: 'new-access',
+				refresh: 'new-refresh',
+				expires: Date.now() + 3600000,
+			};
+			vi.spyOn(authModule, 'refreshAccessToken').mockResolvedValue(newTokens);
+
+			const auth: Auth = {
+				type: 'oauth',
+				access: 'old-access',
+				refresh: 'old-refresh',
+				expires: Date.now() - 1000,
+			};
+			const mockClient = { auth: { set: vi.fn().mockResolvedValue(undefined) } } as any;
+
+			const result = await refreshAndUpdateToken(auth, mockClient);
+
+			expect(mockClient.auth.set).toHaveBeenCalledWith({
+				path: { id: 'openai' },
+				body: {
+					type: 'oauth',
+					access: 'new-access',
+					refresh: 'new-refresh',
+					expires: newTokens.expires,
+				},
+			});
+			expect(result.type).toBe('oauth');
+			if (result.type === 'oauth') {
+				expect(result.access).toBe('new-access');
+				expect(result.refresh).toBe('new-refresh');
+			}
+
+			vi.restoreAllMocks();
 		});
 	});
 
@@ -93,7 +153,7 @@ describe('Fetch Helpers Module', () => {
 	    expect(headers.get('accept')).toBe('text/event-stream');
     });
 
-    it('enriches usage limit errors with friendly message and rate limits', async () => {
+    it('returns original response for usage limit errors (OpenCode handles display)', async () => {
         const body = {
             error: {
                 code: 'usage_limit_reached',
@@ -107,14 +167,13 @@ describe('Fetch Helpers Module', () => {
             'x-codex-primary-reset-at': String(Math.floor(Date.now() / 1000) + 1800),
         });
         const resp = new Response(JSON.stringify(body), { status: 429, headers });
-        const enriched = await handleErrorResponse(resp);
-        expect(enriched.status).toBe(429);
-        const json = await enriched.json() as any;
-        expect(json.error).toBeTruthy();
-        expect(json.error.friendly_message).toMatch(/usage limit/i);
-        expect(json.error.rate_limits.primary.used_percent).toBe(75);
-        expect(json.error.rate_limits.primary.window_minutes).toBe(300);
-        expect(typeof json.error.rate_limits.primary.resets_at).toBe('number');
+        const result = await handleErrorResponse(resp);
+        // Should return original response with same status
+        expect(result.status).toBe(429);
+        // Body should be preserved (original response, not enriched)
+        const json = await result.json() as any;
+        expect(json.error.code).toBe('usage_limit_reached');
+        expect(json.error.message).toBe('limit reached');
     });
 
 		it('should remove x-api-key header', () => {

@@ -147,13 +147,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 						// Step 1: Check and refresh token if needed
 						const currentAuth = await getAuth();
 						if (shouldRefreshToken(currentAuth)) {
-							const refreshResult = await refreshAndUpdateToken(
-								currentAuth,
-								client,
-							);
-							if (!refreshResult.success) {
-								return refreshResult.response;
-							}
+							await refreshAndUpdateToken(currentAuth, client);
 						}
 
 						// Step 2: Extract and rewrite URL for Codex backend
