@@ -3,7 +3,7 @@
  * Handles platform-specific browser opening
  */
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { PLATFORM_OPENERS } from "../constants.js";
 
 /**
@@ -18,6 +18,24 @@ export function getBrowserOpener(): string {
 }
 
 /**
+ * Checks if a command exists in PATH
+ * @param command - Command name to check
+ * @returns true if command exists, false otherwise
+ */
+function commandExists(command: string): boolean {
+	try {
+		const result = spawnSync(
+			process.platform === "win32" ? "where" : "which",
+			[command],
+			{ stdio: "ignore" },
+		);
+		return result.status === 0;
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Opens a URL in the default browser
  * Silently fails if browser cannot be opened (user can copy URL manually)
  * @param url - URL to open
@@ -25,6 +43,13 @@ export function getBrowserOpener(): string {
 export function openBrowserUrl(url: string): void {
 	try {
 		const opener = getBrowserOpener();
+
+		// Check if the opener command exists before attempting to spawn
+		// This prevents crashes in headless environments (Docker, WSL, CI, etc.)
+		if (!commandExists(opener)) {
+			return;
+		}
+
 		spawn(opener, [url], {
 			stdio: "ignore",
 			shell: process.platform === "win32",
