@@ -325,15 +325,78 @@ export function isOpenCodeSystemPrompt(
 }
 
 /**
+ * Extract custom instruction blocks from content
+ * Looks for blocks starting with "Instructions from:"
+ * @param content - Content text to extract from
+ * @returns Array of extracted instruction blocks
+ */
+export function extractCustomInstructions(content: string): string[] {
+	const instructions: string[] = [];
+	const lines = content.split('\n');
+	let currentBlock: string[] | null = null;
+	
+	for (const line of lines) {
+		if (line.startsWith('Instructions from:')) {
+			// Start new instruction block
+			if (currentBlock) {
+				instructions.push(currentBlock.join('\n'));
+			}
+			currentBlock = [line];
+		} else if (currentBlock) {
+			// Continue current block
+			currentBlock.push(line);
+		}
+	}
+	
+	// Add final block if exists
+	if (currentBlock) {
+		instructions.push(currentBlock.join('\n'));
+	}
+	
+	return instructions;
+}
+
+/**
+ * Strip custom instruction blocks from content
+ * Removes blocks starting with "Instructions from:"
+ * @param content - Content text to strip from
+ * @returns Content without instruction blocks
+ */
+export function stripCustomInstructions(content: string): string {
+	const lines = content.split('\n');
+	const result: string[] = [];
+	let inInstructionBlock = false;
+	
+	for (const line of lines) {
+		if (line.startsWith('Instructions from:')) {
+			inInstructionBlock = true;
+		} else if (inInstructionBlock && line.trim() === '') {
+			// Empty line might end the block, but we need to be careful
+			// Continue skipping until we find non-instruction content
+			continue;
+		} else if (inInstructionBlock && !line.startsWith(' ') && !line.startsWith('\t') && line.trim() !== '') {
+			// Non-indented, non-empty line suggests end of instruction block
+			inInstructionBlock = false;
+			result.push(line);
+		} else if (!inInstructionBlock) {
+			result.push(line);
+		}
+	}
+	
+	return result.join('\n');
+}
+
+/**
  * Filter out OpenCode system prompts from input
  * Used in CODEX_MODE to replace OpenCode prompts with Codex-OpenCode bridge
+ * Extracts custom instructions and re-inserts them as separate developer messages
  * @param input - Input array
- * @returns Input array without OpenCode system prompts
+ * @returns Object with filtered input and extracted custom instructions
  */
 export async function filterOpenCodeSystemPrompts(
 	input: InputItem[] | undefined,
-): Promise<InputItem[] | undefined> {
-	if (!Array.isArray(input)) return input;
+): Promise<{ input: InputItem[] | undefined; customInstructions: InputItem[] }> {
+	if (!Array.isArray(input)) return { input, customInstructions: [] };
 
 	// Fetch cached OpenCode prompt for verification
 	let cachedPrompt: string | null = null;
@@ -344,12 +407,54 @@ export async function filterOpenCodeSystemPrompts(
 		// This is safe because we still have the "starts with" check
 	}
 
-	return input.filter((item) => {
+	const customInstructions: InputItem[] = [];
+	
+	const filtered = input.filter((item) => {
 		// Keep user messages
 		if (item.role === "user") return true;
-		// Filter out OpenCode system prompts
-		return !isOpenCodeSystemPrompt(item, cachedPrompt);
+		
+		// Check if this is OpenCode system prompt
+		if (isOpenCodeSystemPrompt(item, cachedPrompt)) {
+			// Extract custom instructions before filtering
+			const getContentText = (item: InputItem): string => {
+				if (typeof item.content === "string") {
+					return item.content;
+				}
+				if (Array.isArray(item.content)) {
+					return item.content
+						.filter((c) => c.type === "input_text" && c.text)
+						.map((c) => c.text)
+						.join("\n");
+				}
+				return "";
+			};
+			
+			const contentText = getContentText(item);
+			const extractedBlocks = extractCustomInstructions(contentText);
+			
+			// Convert each extracted block to a developer message
+			for (const block of extractedBlocks) {
+				customInstructions.push({
+					type: "message",
+					role: "developer",
+					content: [
+						{
+							type: "input_text",
+							text: block,
+						},
+					],
+				});
+			}
+			
+			// Filter out the OpenCode system prompt
+			return false;
+		}
+		
+		// Keep all other messages
+		return true;
 	});
+
+	return { input: filtered, customInstructions };
 }
 
 /**
@@ -484,8 +589,15 @@ export async function transformRequestBody(
 
 		if (codexMode) {
 			// CODEX_MODE: Remove OpenCode system prompt, add bridge prompt
-			body.input = await filterOpenCodeSystemPrompts(body.input);
+			const { input: filtered, customInstructions } = await filterOpenCodeSystemPrompts(body.input);
+			body.input = filtered;
 			body.input = addCodexBridgeMessage(body.input, !!body.tools);
+			
+			// Re-insert custom instructions after bridge message
+			if (customInstructions.length > 0) {
+				logDebug(`Re-inserting ${customInstructions.length} custom instruction block(s)`);
+				body.input = [...(body.input || []), ...customInstructions];
+			}
 		} else {
 			// DEFAULT MODE: Keep original behavior with tool remap message
 			body.input = addToolRemapMessage(body.input, !!body.tools);
