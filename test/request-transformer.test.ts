@@ -475,7 +475,7 @@ describe('Request Transformer Module', () => {
 				},
 				{ type: 'message', role: 'user', content: 'hello' },
 			];
-			const result = await filterOpenCodeSystemPrompts(input);
+			const { input: result } = await filterOpenCodeSystemPrompts(input);
 			expect(result).toHaveLength(1);
 			expect(result![0].role).toBe('user');
 		});
@@ -485,7 +485,7 @@ describe('Request Transformer Module', () => {
 				{ type: 'message', role: 'user', content: 'message 1' },
 				{ type: 'message', role: 'user', content: 'message 2' },
 			];
-			const result = await filterOpenCodeSystemPrompts(input);
+			const { input: result } = await filterOpenCodeSystemPrompts(input);
 			expect(result).toHaveLength(2);
 		});
 
@@ -494,7 +494,7 @@ describe('Request Transformer Module', () => {
 				{ type: 'message', role: 'developer', content: 'Custom instruction' },
 				{ type: 'message', role: 'user', content: 'hello' },
 			];
-			const result = await filterOpenCodeSystemPrompts(input);
+			const { input: result } = await filterOpenCodeSystemPrompts(input);
 			expect(result).toHaveLength(2);
 		});
 
@@ -512,7 +512,7 @@ describe('Request Transformer Module', () => {
 				},
 				{ type: 'message', role: 'user', content: 'hello' },
 			];
-			const result = await filterOpenCodeSystemPrompts(input);
+			const { input: result } = await filterOpenCodeSystemPrompts(input);
 			// Should filter codex.txt but keep AGENTS.md
 			expect(result).toHaveLength(2);
 			expect(result![0].content).toContain('AGENTS.md');
@@ -534,15 +534,35 @@ describe('Request Transformer Module', () => {
 				},
 				{ type: 'message', role: 'user', content: 'hello' },
 			];
-			const result = await filterOpenCodeSystemPrompts(input);
+			const { input: result } = await filterOpenCodeSystemPrompts(input);
 			// Should filter first message (codex.txt) but keep second (env+AGENTS.md)
 			expect(result).toHaveLength(2);
 			expect(result![0].content).toContain('AGENTS.md');
 			expect(result![1].role).toBe('user');
 		});
 
+		it('should extract custom instructions when part of OpenCode prompt', async () => {
+			const input: InputItem[] = [
+				{
+					type: 'message',
+					role: 'developer',
+					content: `You are a coding agent running in OpenCode
+
+Instructions from: /home/user/.config/opencode/AGENTS.md
+- Be very concise`,
+				},
+				{ type: 'message', role: 'user', content: 'hello' },
+			];
+			const { input: result, customInstructions } = await filterOpenCodeSystemPrompts(input);
+			expect(result).toHaveLength(1);
+			expect(result![0].role).toBe('user');
+			expect(customInstructions).toHaveLength(1);
+			expect(customInstructions[0].content[0].text).toContain('Instructions from:');
+		});
+
 		it('should return undefined for undefined input', async () => {
-			expect(await filterOpenCodeSystemPrompts(undefined)).toBeUndefined();
+			const { input: result } = await filterOpenCodeSystemPrompts(undefined);
+			expect(result).toBeUndefined();
 		});
 	});
 
