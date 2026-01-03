@@ -29,6 +29,7 @@
   },
   "scripts": {
     "build": "tsc && cp lib/oauth-success.html dist/lib/",
+    "prepare": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
