@@ -325,10 +325,57 @@ export function isOpenCodeSystemPrompt(
 }
 
 /**
+ * Extract content text from an input item
+ * @param item - Input item
+ * @returns Content as string
+ */
+function getContentText(item: InputItem): string {
+	if (typeof item.content === "string") {
+		return item.content;
+	}
+	if (Array.isArray(item.content)) {
+		return item.content
+			.filter((c) => c.type === "input_text" && c.text)
+			.map((c) => c.text)
+			.join("\n");
+	}
+	return "";
+}
+
+/**
+ * Extract AGENTS.md content from a concatenated OpenCode message
+ *
+ * OpenCode concatenates multiple pieces into a single developer message:
+ * 1. Base codex.txt prompt (starts with "You are a coding agent running in...")
+ * 2. Environment info
+ * 3. <files> block
+ * 4. AGENTS.md content (prefixed with "Instructions from: /path/to/AGENTS.md")
+ *
+ * This function extracts the AGENTS.md portions so they can be preserved
+ * when filtering out the OpenCode base prompt.
+ *
+ * @param contentText - The full content text of the message
+ * @returns The AGENTS.md content if found, null otherwise
+ */
+function extractAgentsMdContent(contentText: string): string | null {
+	const marker = "Instructions from:";
+	const idx = contentText.indexOf(marker);
+	if (idx > 0) {
+		return contentText.slice(idx).trimStart();
+	}
+	return null;
+}
+
+/**
  * Filter out OpenCode system prompts from input
  * Used in CODEX_MODE to replace OpenCode prompts with Codex-OpenCode bridge
+ *
+ * When OpenCode sends a concatenated message containing both the base prompt
+ * AND AGENTS.md content, this function extracts and preserves the AGENTS.md
+ * portions while filtering out the OpenCode base prompt.
+ *
  * @param input - Input array
- * @returns Input array without OpenCode system prompts
+ * @returns Input array without OpenCode system prompts (but with AGENTS.md preserved)
  */
 export async function filterOpenCodeSystemPrompts(
 	input: InputItem[] | undefined,
@@ -344,12 +391,39 @@ export async function filterOpenCodeSystemPrompts(
 		// This is safe because we still have the "starts with" check
 	}
 
-	return input.filter((item) => {
-		// Keep user messages
-		if (item.role === "user") return true;
-		// Filter out OpenCode system prompts
-		return !isOpenCodeSystemPrompt(item, cachedPrompt);
-	});
+	const result: InputItem[] = [];
+
+	for (const item of input) {
+		// Keep user messages as-is
+		if (item.role === "user") {
+			result.push(item);
+			continue;
+		}
+
+		// Check if this is an OpenCode system prompt
+		if (isOpenCodeSystemPrompt(item, cachedPrompt)) {
+			// OpenCode may concatenate AGENTS.md content with the base prompt
+			// Extract and preserve any AGENTS.md content
+			const contentText = getContentText(item);
+			const agentsMdContent = extractAgentsMdContent(contentText);
+
+			if (agentsMdContent) {
+				// Create a new message with just the AGENTS.md content
+				result.push({
+					type: "message",
+					role: "developer",
+					content: agentsMdContent,
+				});
+			}
+			// Filter out the OpenCode base prompt (don't add original item)
+			continue;
+		}
+
+		// Keep all other messages
+		result.push(item);
+	}
+
+	return result;
 }
 
 /**

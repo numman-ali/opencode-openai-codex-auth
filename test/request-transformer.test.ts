@@ -544,6 +544,133 @@ describe('Request Transformer Module', () => {
 		it('should return undefined for undefined input', async () => {
 			expect(await filterOpenCodeSystemPrompts(undefined)).toBeUndefined();
 		});
+
+		// Tests for concatenated messages (single message containing both prompt AND AGENTS.md)
+		// This is how OpenCode actually sends content (as of v1.0.164+).
+		// The tests above cover separate messages pattern which may also occur.
+		describe('concatenated messages (OpenCode v1.0.164+ pattern)', () => {
+			it('should extract and preserve AGENTS.md when concatenated with OpenCode prompt', async () => {
+				// OpenCode sends a SINGLE message containing:
+				// 1. Base codex.txt prompt
+				// 2. Environment info
+				// 3. <files> block
+				// 4. AGENTS.md content (prefixed with "Instructions from:")
+				const input: InputItem[] = [
+					{
+						type: 'message',
+						role: 'developer',
+						content: `You are a coding agent running in the opencode, a terminal-based coding assistant.
+
+Here is some useful information about the environment you are running in:
+<env>
+  Working directory: /Users/test/project
+  Platform: darwin
+</env>
+<files>
+  src/
+    index.ts
+</files>
+Instructions from: /Users/test/project/AGENTS.md
+# Project Guidelines
+
+Use TypeScript for all new code.
+Follow existing patterns in the codebase.
+
+Instructions from: /Users/test/.config/opencode/AGENTS.md
+# Global Settings
+
+Always use mise for tool management.`,
+					},
+					{ type: 'message', role: 'user', content: 'hello' },
+				];
+
+				const result = await filterOpenCodeSystemPrompts(input);
+
+				// Should have 2 messages: extracted AGENTS.md content + user message
+				expect(result).toHaveLength(2);
+				expect(result![0].role).toBe('developer');
+				expect(result![0].content).toContain('Instructions from:');
+				expect(result![0].content).toContain('Project Guidelines');
+				expect(result![0].content).toContain('Global Settings');
+				// Should NOT contain the OpenCode base prompt
+				expect(result![0].content).not.toContain('You are a coding agent running in');
+				expect(result![1].role).toBe('user');
+			});
+
+			it('should preserve multiple AGENTS.md files in concatenated message', async () => {
+				const input: InputItem[] = [
+					{
+						type: 'message',
+						role: 'developer',
+						content: `You are a coding agent running in the opencode...
+
+Instructions from: /project/AGENTS.md
+# Project AGENTS.md
+Project-specific instructions here.
+
+Instructions from: /project/src/AGENTS.md
+# Nested AGENTS.md
+More specific instructions for src folder.
+
+Instructions from: ~/.config/opencode/AGENTS.md
+# Global AGENTS.md
+Global instructions here.`,
+					},
+					{ type: 'message', role: 'user', content: 'test' },
+				];
+
+				const result = await filterOpenCodeSystemPrompts(input);
+
+				expect(result).toHaveLength(2);
+				// All AGENTS.md content should be preserved
+				expect(result![0].content).toContain('Project AGENTS.md');
+				expect(result![0].content).toContain('Nested AGENTS.md');
+				expect(result![0].content).toContain('Global AGENTS.md');
+			});
+
+			it('should handle concatenated message with no AGENTS.md (just base prompt)', async () => {
+				const input: InputItem[] = [
+					{
+						type: 'message',
+						role: 'developer',
+						content: 'You are a coding agent running in the opencode, a terminal-based coding assistant.',
+					},
+					{ type: 'message', role: 'user', content: 'hello' },
+				];
+
+				const result = await filterOpenCodeSystemPrompts(input);
+
+				// Should just have the user message (base prompt filtered, no AGENTS.md to preserve)
+				expect(result).toHaveLength(1);
+				expect(result![0].role).toBe('user');
+			});
+
+			it('should handle array content format in concatenated message', async () => {
+				const input: InputItem[] = [
+					{
+						type: 'message',
+						role: 'developer',
+						content: [
+							{
+								type: 'input_text',
+								text: `You are a coding agent running in the opencode...
+
+Instructions from: /project/AGENTS.md
+# My Custom Instructions
+Do things this way.`,
+							},
+						],
+					},
+					{ type: 'message', role: 'user', content: 'hello' },
+				];
+
+				const result = await filterOpenCodeSystemPrompts(input);
+
+				expect(result).toHaveLength(2);
+				expect(result![0].content).toContain('My Custom Instructions');
+				expect(result![0].content).not.toContain('You are a coding agent');
+			});
+		});
 	});
 
 	describe('addCodexBridgeMessage', () => {
