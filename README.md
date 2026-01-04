@@ -97,11 +97,13 @@ Check [releases](https://github.com/numman-ali/opencode-openai-codex-auth/releas
 
 ### Agent Instructions (Install / Update)
 
-If you’re using an AI agent (Codex/Claude/etc.) to install or update this plugin on a machine, use these steps:
+If you're using an AI agent (Codex/Claude/etc.) to install or update this plugin on a machine, use these steps:
 
 1. **Use the official repo**: https://github.com/numman-ali/opencode-openai-codex-auth
-2. **Pin the plugin version** in the user’s OpenCode config (`~/.config/opencode/opencode.json` or project `.opencode.json`).
-3. **Replace the config** with the latest `config/full-opencode.json` from the repo.
+2. **Pin the plugin version** in the user's OpenCode config (`~/.config/opencode/opencode.json` or project `.opencode.json`).
+3. **Determine OpenCode version** and copy the appropriate config:
+   - **v1.0.210+**: Use `config/opencode-modern.json` (compact, uses variants)
+   - **v1.0.209 or older**: Use `config/opencode-legacy.json` (full model list)
 4. **Refresh the plugin cache** so OpenCode reinstalls the updated version.
 5. **Restart OpenCode**.
 
@@ -109,15 +111,21 @@ If you’re using an AI agent (Codex/Claude/etc.) to install or update this plug
 # 1) Update plugin version (replace <latest> with newest release tag)
 # Example: opencode-openai-codex-auth@4.2.0
 
-# 2) Copy full config
-cp <repo>/config/full-opencode.json ~/.config/opencode/opencode.json
+# 2) Check OpenCode version
+opencode --version
 
-# 3) Refresh OpenCode plugin cache
+# 3) Copy appropriate config based on version
+# For v1.0.210+ (recommended):
+cp <repo>/config/opencode-modern.json ~/.config/opencode/opencode.json
+
+# For older versions:
+cp <repo>/config/opencode-legacy.json ~/.config/opencode/opencode.json
+
+# 4) Refresh OpenCode plugin cache
 rm -rf ~/.cache/opencode/node_modules ~/.cache/opencode/bun.lock
 
-# 4) Optional sanity check for GPT-5.2-Codex presets
-jq '.provider.openai.models | keys | map(select(startswith("gpt-5.2-codex")))' \
-  ~/.config/opencode/opencode.json
+# 5) Optional sanity check for available models
+jq '.provider.openai.models | keys | length' ~/.config/opencode/opencode.json
 ```
 
 > **Note**: If using a project-local config, replace the target path with `<project>/.opencode.json`.
@@ -126,77 +134,56 @@ jq '.provider.openai.models | keys | map(select(startswith("gpt-5.2-codex")))' \
 
 #### ⚠️ REQUIRED: Full Configuration (Only Supported Setup)
 
-**IMPORTANT**: You MUST use the full configuration from [`config/full-opencode.json`](./config/full-opencode.json). Other configurations are not officially supported and may not work reliably.
+**IMPORTANT**: You MUST use one of the pre-configured files from the `config/` directory. Other configurations are not officially supported and may not work reliably.
 
-**Why the full config is required:**
-- GPT 5 models can be temperamental - some work, some don't, some may error
-- The full config has been tested and verified to work
-- Minimal configs lack proper model metadata for OpenCode features
-- Older GPT 5.0 models are deprecated and being phased out by OpenAI
+**Two configuration files available based on your OpenCode version:**
 
-1. **Copy the full configuration** from [`config/full-opencode.json`](./config/full-opencode.json) to your opencode config file.
+| File | OpenCode Version | Description |
+|------|------------------|-------------|
+| [`config/opencode-modern.json`](./config/opencode-modern.json) | **v1.0.210+ (Jan 2026+)** | Compact config using variants system - 6 models with built-in reasoning level variants |
+| [`config/opencode-legacy.json`](./config/opencode-legacy.json) | **v1.0.209 and below** | Extended config with separate model entries for each reasoning level - 20+ individual model definitions |
 
-   The config includes 22 models with image input support. Here's a condensed example showing the structure:
+**Why two configs?**
+- OpenCode v1.0.210+ introduced a **variants system** that allows defining reasoning effort levels as variants under a single model
+- This reduces config size from 572 lines to ~150 lines while maintaining the same functionality
+- Use the legacy config if you're on an older OpenCode version
 
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-openai-codex-auth@4.2.0"],
-  "provider": {
-    "openai": {
-      "options": {
-        "reasoningEffort": "medium",
-        "reasoningSummary": "auto",
-        "textVerbosity": "medium",
-        "include": ["reasoning.encrypted_content"],
-        "store": false
-      },
-      "models": {
-        "gpt-5.2-high": {
-          "name": "GPT 5.2 High (OAuth)",
-          "limit": { "context": 272000, "output": 128000 },
-          "modalities": { "input": ["text", "image"], "output": ["text"] },
-          "options": {
-            "reasoningEffort": "high",
-            "reasoningSummary": "detailed",
-            "textVerbosity": "medium",
-            "include": ["reasoning.encrypted_content"],
-            "store": false
-          }
-        },
-        "gpt-5.1-codex-max-high": {
-          "name": "GPT 5.1 Codex Max High (OAuth)",
-          "limit": { "context": 272000, "output": 128000 },
-          "modalities": { "input": ["text", "image"], "output": ["text"] },
-          "options": {
-            "reasoningEffort": "high",
-            "reasoningSummary": "detailed",
-            "textVerbosity": "medium",
-            "include": ["reasoning.encrypted_content"],
-            "store": false
-          }
-        }
-        // ... 20 more models - see config/full-opencode.json for complete list
-      }
-    }
-  }
-}
+**How to choose:**
+
+1. **If you have OpenCode v1.0.210 or newer** (check with `opencode --version`):
+   - ✅ Use [`config/opencode-modern.json`](./config/opencode-modern.json)
+   - Benefits: Cleaner config, built-in variant cycling with `Ctrl+T`, easier to maintain
+
+2. **If you have OpenCode v1.0.209 or older**:
+   - ✅ Use [`config/opencode-legacy.json`](./config/opencode-legacy.json)
+   - This provides the same 20+ model variants as separate entries
+
+**Quick install:**
+
+```bash
+# For OpenCode v1.0.210+ (recommended)
+cp <repo>/config/opencode-modern.json ~/.config/opencode/opencode.json
+
+# For older OpenCode versions
+cp <repo>/config/opencode-legacy.json ~/.config/opencode/opencode.json
 ```
 
-   **⚠️ Copy the complete file** from [`config/full-opencode.json`](./config/full-opencode.json) - don't use this truncated example.
+**What you get:**
 
-   **Global config**: `~/.config/opencode/opencode.json`
-   **Project config**: `<project>/.opencode.json`
+| Config File | Model Families | Reasoning Variants | Total Models |
+|------------|----------------|-------------------|--------------|
+| `opencode-modern.json` | 6 | Built-in variants (low/medium/high/xhigh) | 6 base models with 19 total variants |
+| `opencode-legacy.json` | 6 | Separate model entries | 20 individual model definitions |
 
-   This gives you 22 model variants with different reasoning levels:
-   - **gpt-5.2** (none/low/medium/high/xhigh) - Latest GPT 5.2 model with full reasoning support
-   - **gpt-5.2-codex** (low/medium/high/xhigh) - GPT 5.2 Codex presets
-   - **gpt-5.1-codex-max** (low/medium/high/xhigh) - Codex Max presets
-   - **gpt-5.1-codex** (low/medium/high) - Codex model presets
-   - **gpt-5.1-codex-mini** (medium/high) - Codex mini tier presets
-   - **gpt-5.1** (none/low/medium/high) - General-purpose reasoning presets
+Both configs provide access to the same model families:
+- **gpt-5.2** (none/low/medium/high/xhigh) - Latest GPT 5.2 model with full reasoning support
+- **gpt-5.2-codex** (low/medium/high/xhigh) - GPT 5.2 Codex presets
+- **gpt-5.1-codex-max** (low/medium/high/xhigh) - Codex Max presets
+- **gpt-5.1-codex** (low/medium/high) - Codex model presets
+- **gpt-5.1-codex-mini** (medium/high) - Codex mini tier presets
+- **gpt-5.1** (none/low/medium/high) - General-purpose reasoning presets
 
-   All appear in the opencode model selector as "GPT 5.1 Codex Low (OAuth)", "GPT 5.1 High (OAuth)", etc.
+All appear in the opencode model selector as "GPT 5.1 Codex Low (OAuth)", "GPT 5.1 High (OAuth)", etc.
 
 ### Prompt caching & usage limits
 
@@ -262,9 +249,39 @@ opencode run "balanced task" --model=openai/gpt-5.1-codex-mini-medium
 opencode run "complex code" --model=openai/gpt-5.1-codex-mini-high
 ```
 
-### Available Model Variants (Full Config)
+### Available Model Variants
 
-When using [`config/full-opencode.json`](./config/full-opencode.json), you get these pre-configured variants:
+When using the recommended config file, you get pre-configured variants. The model ID format differs based on your OpenCode version:
+
+**For OpenCode v1.0.210+ (modern config with variants):**
+
+Use the base model with variant suffix:
+
+```bash
+# Variant cycling available with Ctrl+T
+opencode run "task" --model=openai/gpt-5.2:low
+opencode run "task" --model=openai/gpt-5.2:medium
+opencode run "task" --model=openai/gpt-5.2:high
+```
+
+| Base Model | Available Variants | TUI Display Name |
+|------------|-------------------|------------------|
+| `gpt-5.2` | none, low, medium, high, xhigh | GPT 5.2 {variant} (OAuth) |
+| `gpt-5.2-codex` | low, medium, high, xhigh | GPT 5.2 Codex {variant} (OAuth) |
+| `gpt-5.1-codex-max` | low, medium, high, xhigh | GPT 5.1 Codex Max {variant} (OAuth) |
+| `gpt-5.1-codex` | low, medium, high | GPT 5.1 Codex {variant} (OAuth) |
+| `gpt-5.1-codex-mini` | medium, high | GPT 5.1 Codex Mini {variant} (OAuth) |
+| `gpt-5.1` | none, low, medium, high | GPT 5.1 {variant} (OAuth) |
+
+**For OpenCode v1.0.209 and below (legacy config with separate entries):**
+
+Use explicit model IDs:
+
+```bash
+opencode run "task" --model=openai/gpt-5.2-low
+opencode run "task" --model=openai/gpt-5.2-medium
+opencode run "task" --model=openai/gpt-5.2-high
+```
 
 | CLI Model ID | TUI Display Name | Reasoning Effort | Best For |
 |--------------|------------------|-----------------|----------|
@@ -298,7 +315,7 @@ When using [`config/full-opencode.json`](./config/full-opencode.json), you get t
 >
 > **Note**: GPT 5.2, GPT 5.2 Codex, and Codex Max all support `xhigh` reasoning. Use explicit reasoning levels (e.g., `gpt-5.2-high`, `gpt-5.2-codex-xhigh`, `gpt-5.1-codex-max-xhigh`) for precise control.
 
-> **⚠️ Important**: GPT 5 models can be temperamental - some variants may work better than others, some may give errors, and behavior may vary. Stick to the presets above configured in `full-opencode.json` for best results.
+> **⚠️ Important**: GPT 5 models can be temperamental - some variants may work better than others, some may give errors, and behavior may vary. Stick to the presets above configured in your config file for best results.
 
 All accessed via your ChatGPT Plus/Pro subscription.
 
@@ -340,12 +357,25 @@ These defaults are tuned for Codex CLI-style usage and can be customized (see Co
 
 ### ⚠️ REQUIRED: Use Pre-Configured File
 
-**YOU MUST use [`config/full-opencode.json`](./config/full-opencode.json)** - this is the only officially supported configuration:
-- 22 pre-configured model variants (GPT 5.2, GPT 5.2 Codex, GPT 5.1, Codex, Codex Max, Codex Mini)
-- Image input support enabled for all models
-- Optimal configuration for each reasoning level
-- All variants visible in the opencode model selector
-- Required metadata for OpenCode features to work properly
+**YOU MUST use one of the pre-configured files from the `config/` directory** - this is the only officially supported configuration:
+
+**For OpenCode v1.0.210+ (Jan 2026+):**
+- ✅ Use [`config/opencode-modern.json`](./config/opencode-modern.json)
+- 6 base models with built-in variants
+- ~150 lines, easier to maintain
+- Built-in variant cycling (`Ctrl+T`)
+
+**For OpenCode v1.0.209 and below:**
+- ✅ Use [`config/opencode-legacy.json`](./config/opencode-legacy.json)
+- 20+ individual model definitions
+- 572 lines, compatible with older versions
+
+Both configs provide:
+- ✅ Pre-configured model variants for all reasoning levels
+- ✅ Image input support enabled for all models
+- ✅ Optimal configuration for each reasoning level
+- ✅ All variants visible in the opencode model selector
+- ✅ Required metadata for OpenCode features to work properly
 
 **Do NOT use other configurations** - they are not supported and may fail unpredictably with GPT 5 models.
 

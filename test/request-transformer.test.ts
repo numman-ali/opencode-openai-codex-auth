@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
     normalizeModel,
     getModelConfig,
@@ -1074,7 +1074,7 @@ Do things this way.`,
 			expect(result.reasoning?.effort).toBe('low');
 		});
 
-		it('should preserve minimal for non-codex models', async () => {
+		it('should normalize minimal to low for gpt-5 (which maps to gpt-5.1)', async () => {
 			const body: RequestBody = {
 				model: 'gpt-5',
 				input: [],
@@ -1084,7 +1084,8 @@ Do things this way.`,
 				models: {},
 			};
 			const result = await transformRequestBody(body, codexInstructions, userConfig);
-			expect(result.reasoning?.effort).toBe('minimal');
+			// gpt-5 normalizes to gpt-5.1, and minimal is normalized to low for all models
+			expect(result.reasoning?.effort).toBe('low');
 		});
 
 		it('should use minimal effort for lightweight models', async () => {

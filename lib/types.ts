@@ -18,7 +18,11 @@ export interface UserConfig {
 	global: ConfigOptions;
 	models: {
 		[modelName: string]: {
+			id?: string;  // Optional model ID (may come from config)
 			options?: ConfigOptions;
+			variants?: {
+				[variantName: string]: ConfigOptions;
+			};
 		};
 	};
 }
@@ -137,6 +141,14 @@ export interface RequestBody {
 	prompt_cache_key?: string;
 	max_output_tokens?: number;
 	max_completion_tokens?: number;
+	/** Provider options from OpenCode (includes variant configuration from modern config format) */
+	providerOptions?: {
+		openai?: {
+			reasoningEffort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+			reasoningSummary?: "auto" | "concise" | "detailed" | "off" | "on";
+			textVerbosity?: "low" | "medium" | "high";
+		};
+	};
 	[key: string]: unknown;
 }
 
