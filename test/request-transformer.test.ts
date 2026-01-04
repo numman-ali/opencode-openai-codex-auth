@@ -13,6 +13,18 @@ import { TOOL_REMAP_MESSAGE } from '../lib/prompts/codex.js';
 import { CODEX_OPENCODE_BRIDGE } from '../lib/prompts/codex-opencode-bridge.js';
 import type { RequestBody, UserConfig, InputItem } from '../lib/types.js';
 
+// Helper to extract text from content (handles both string and array formats)
+function getContentText(item: InputItem): string {
+	if (typeof item.content === 'string') return item.content;
+	if (Array.isArray(item.content)) {
+		return item.content
+			.filter((c): c is { type: 'input_text'; text: string } => c.type === 'input_text')
+			.map(c => c.text)
+			.join('');
+	}
+	return '';
+}
+
 describe('Request Transformer Module', () => {
 	describe('normalizeModel', () => {
 		// NOTE: All gpt-5 models now normalize to gpt-5.1 as gpt-5 is being phased out
@@ -515,7 +527,8 @@ describe('Request Transformer Module', () => {
 			const result = await filterOpenCodeSystemPrompts(input);
 			// Should filter codex.txt but keep AGENTS.md
 			expect(result).toHaveLength(2);
-			expect(result![0].content).toContain('AGENTS.md');
+			const content0 = Array.isArray(result![0].content) ? (result![0].content as any)[0].text : result![0].content;
+			expect(content0).toContain('AGENTS.md');
 			expect(result![1].role).toBe('user');
 		});
 
@@ -537,7 +550,8 @@ describe('Request Transformer Module', () => {
 			const result = await filterOpenCodeSystemPrompts(input);
 			// Should filter first message (codex.txt) but keep second (env+AGENTS.md)
 			expect(result).toHaveLength(2);
-			expect(result![0].content).toContain('AGENTS.md');
+			const content0 = Array.isArray(result![0].content) ? (result![0].content as any)[0].text : result![0].content;
+			expect(content0).toContain('AGENTS.md');
 			expect(result![1].role).toBe('user');
 		});
 
@@ -589,11 +603,12 @@ Always use mise for tool management.`,
 				// Should have 2 messages: extracted AGENTS.md content + user message
 				expect(result).toHaveLength(2);
 				expect(result![0].role).toBe('developer');
-				expect(result![0].content).toContain('Instructions from:');
-				expect(result![0].content).toContain('Project Guidelines');
-				expect(result![0].content).toContain('Global Settings');
+				const content0 = Array.isArray(result![0].content) ? (result![0].content as any)[0].text : result![0].content;
+				expect(content0).toContain('Instructions from:');
+				expect(content0).toContain('Project Guidelines');
+				expect(content0).toContain('Global Settings');
 				// Should NOT contain the OpenCode base prompt
-				expect(result![0].content).not.toContain('You are a coding agent running in');
+				expect(content0).not.toContain('You are a coding agent running in');
 				expect(result![1].role).toBe('user');
 			});
 
@@ -619,13 +634,14 @@ Global instructions here.`,
 					{ type: 'message', role: 'user', content: 'test' },
 				];
 
-				const result = await filterOpenCodeSystemPrompts(input);
+			const result = await filterOpenCodeSystemPrompts(input);
 
-				expect(result).toHaveLength(2);
-				// All AGENTS.md content should be preserved
-				expect(result![0].content).toContain('Project AGENTS.md');
-				expect(result![0].content).toContain('Nested AGENTS.md');
-				expect(result![0].content).toContain('Global AGENTS.md');
+			expect(result).toHaveLength(2);
+			// All AGENTS.md content should be preserved
+			const contentText = getContentText(result![0]);
+			expect(contentText).toContain('Project AGENTS.md');
+			expect(contentText).toContain('Nested AGENTS.md');
+			expect(contentText).toContain('Global AGENTS.md');
 			});
 
 			it('should handle concatenated message with no AGENTS.md (just base prompt)', async () => {
@@ -664,12 +680,13 @@ Do things this way.`,
 					{ type: 'message', role: 'user', content: 'hello' },
 				];
 
-				const result = await filterOpenCodeSystemPrompts(input);
+			const result = await filterOpenCodeSystemPrompts(input);
 
-				expect(result).toHaveLength(2);
-				expect(result![0].content).toContain('My Custom Instructions');
-				expect(result![0].content).not.toContain('You are a coding agent');
-			});
+			expect(result).toHaveLength(2);
+			const contentText = getContentText(result![0]);
+			expect(contentText).toContain('My Custom Instructions');
+			expect(contentText).not.toContain('You are a coding agent');
+		});
 		});
 	});
 

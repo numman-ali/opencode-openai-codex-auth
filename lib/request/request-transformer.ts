@@ -400,10 +400,10 @@ export async function filterOpenCodeSystemPrompts(
     cachedPrompt = await getOpenCodeCodexPrompt();
   } catch {
     // If fetch fails, fallback to text-based detection only
-    // This is safe because we still have the "starts with" check
   }
 
   const result: InputItem[] = [];
+  const customInstructions: InputItem[] = [];
 
   for (const item of input) {
     // Keep user messages as-is
@@ -412,22 +412,34 @@ export async function filterOpenCodeSystemPrompts(
       continue;
     }
 
-    // Check if this is an OpenCode system prompt
-    if (isOpenCodeSystemPrompt(item, cachedPrompt)) {
-      // OpenCode may concatenate AGENTS.md content with the base prompt
-      // Extract and preserve any AGENTS.md content
-      const contentText = getContentText(item);
-      const agentsMdContent = extractAgentsMdContent(contentText);
+    const contentText = getContentText(item);
+    
+    // Extract "Instructions from:" blocks from ANY developer message
+    // This ensures AGENTS.md is preserved regardless of prompt detection
+    const agentsMdContent = extractAgentsMdContent(contentText);
+    if (agentsMdContent) {
+      customInstructions.push({
+        type: "message",
+        role: "developer",
+        content: [
+          {
+            type: "input_text",
+            text: agentsMdContent,
+          },
+        ],
+      });
+    }
 
-      if (agentsMdContent) {
-        // Create a new message with just the AGENTS.md content
-        result.push({
-          type: "message",
-          role: "developer",
-          content: agentsMdContent,
-        });
-      }
-      // Filter out the OpenCode base prompt (don't add original item)
+    // Check if this is an OpenCode system prompt - filter it out
+    if (isOpenCodeSystemPrompt(item, cachedPrompt)) {
+      // Don't add the original OpenCode prompt (AGENTS.md already extracted above)
+      continue;
+    }
+
+    // For non-OpenCode messages that had "Instructions from:", 
+    // we've extracted them above - don't keep the original if it was just instructions
+    if (agentsMdContent && contentText.trim().startsWith("Instructions from:")) {
+      // This was a standalone AGENTS.md message, already extracted
       continue;
     }
 
@@ -435,7 +447,9 @@ export async function filterOpenCodeSystemPrompts(
     result.push(item);
   }
 
-  return result;
+  // Insert custom instructions before user messages
+  // Order after bridge prepend: [bridge, custom_instructions, user_messages]
+  return [...customInstructions, ...result];
 }
 
 /**
