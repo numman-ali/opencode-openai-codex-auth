@@ -49,7 +49,7 @@ opencode run "write hello world to test.txt" --model=openai/gpt-5.2-medium
 - Modern (OpenCode v1.0.210+): `config/opencode-modern.json`
 - Legacy (OpenCode v1.0.209 and below): `config/opencode-legacy.json`
 
-Minimal configs are not supported for GPT–5.x; use the full configs above.    
+Minimal configs are not recommended for GPT–5.x/Codex; use the full configs above. For advanced/debug use only, see `config/minimal-opencode.json`.
 ---
 ## Multi-account
 - Add multiple accounts by running `opencode auth login` and choosing add more accounts.

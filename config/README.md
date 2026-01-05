@@ -80,7 +80,14 @@ Both configs provide:
 
 > **Note**: The config templates use an **unversioned** plugin entry (`opencode-openai-codex-auth`) so the installer can always pull the latest release. If you need reproducibility, pin a specific version manually.
 
+### Minimal config (advanced)
+
+A barebones example is available at [`minimal-opencode.json`](./minimal-opencode.json). It’s intended for debugging and does not include the full GPT‑5.x/Codex preset/variant definitions.
+
+For normal usage, prefer `opencode-modern.json` (v1.0.210+) or `opencode-legacy.json` (v1.0.209 and below).
+
 ## Available Models
+
 
 Both configs provide access to the same model families:
 

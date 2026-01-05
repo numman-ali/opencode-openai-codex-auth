@@ -1,15 +1,20 @@
 # Test Suite
 
-This directory contains the comprehensive test suite for the OpenAI Codex OAuth plugin.
+This directory contains the test suite for the OpenAI Codex OAuth plugin.
 
 ## Test Structure
 
 ```
 test/
 ├── README.md                      # This file
+├── accounts.test.ts               # Multi-account storage/rotation tests
 ├── auth.test.ts                   # OAuth authentication tests
-├── config.test.ts                 # Configuration parsing tests
+├── browser.test.ts                # Platform-specific browser open behavior
+├── codex.test.ts                  # Codex prompt/instructions behavior
+├── config.test.ts                 # Configuration parsing/merging tests
+├── fetch-helpers.test.ts          # Fetch flow helper tests
 ├── logger.test.ts                 # Logging functionality tests
+├── plugin-config.test.ts          # Plugin config defaults + overrides
 ├── request-transformer.test.ts    # Request transformation tests
 └── response-handler.test.ts       # Response handling tests
 ```
@@ -32,7 +37,7 @@ npm run test:coverage
 
 ## Test Coverage
 
-### auth.test.ts (16 tests)
+### auth.test.ts
 Tests OAuth authentication functionality:
 - State generation and uniqueness
 - Authorization input parsing (URL, code#state, query string formats)
@@ -40,26 +45,29 @@ Tests OAuth authentication functionality:
 - Authorization flow creation with PKCE
 - URL parameter validation
 
-### config.test.ts (13 tests)
+### accounts.test.ts
+Tests multi-account behavior:
+- Account seeding from fallback auth
+- Account rotation when rate-limited
+- Cooldown handling for transient failures
+
+### config.test.ts + plugin-config.test.ts
 Tests configuration parsing and merging:
 - Global configuration application
 - Per-model configuration overrides
-- Mixed configuration (global + per-model)
 - Default values and fallbacks
-- Reasoning effort normalization (minimal → low for codex)
-- Lightweight model detection (nano, mini)
+- Reasoning effort normalization (e.g. minimal → low for Codex families)
+- Model-family detection and prompt selection
 
-### request-transformer.test.ts (30 tests)
+### request-transformer.test.ts
 Tests request body transformations:
-- Model name normalization (all variants → gpt-5 or gpt-5-codex)
-- Input filtering (removing stored conversation history)
-- Tool remap message injection
+- Model name normalization
+- Input filtering (stateless operation)
+- Bridge/tool-remap message injection
 - Reasoning configuration application
-- Text verbosity settings
-- Encrypted reasoning content inclusion
 - Unsupported parameter removal
 
-### response-handler.test.ts (10 tests)
+### response-handler.test.ts
 Tests SSE to JSON conversion:
 - Content-type header management
 - SSE stream parsing (response.done, response.completed)
@@ -67,18 +75,30 @@ Tests SSE to JSON conversion:
 - Empty stream handling
 - Status preservation
 
-### logger.test.ts (5 tests)
-Tests logging functionality:
-- LOGGING_ENABLED constant
-- logRequest function parameter handling
-- Complex data structure support
+### fetch-helpers.test.ts
+Tests focused helpers used in the 7-step fetch flow:
+- URL rewriting
+- Header construction
+- Body normalization
+- Request/response edge cases
+
+### logger.test.ts
+Tests logging behavior:
+- Environment-gated request logging
+- Parameter handling
+
+### browser.test.ts
+Tests browser opening behavior across platforms.
+
+### codex.test.ts
+Tests Codex instructions/prompt behaviors and caching paths.
 
 ## Test Philosophy
 
-1. **Comprehensive Coverage**: Each module has extensive tests covering normal cases, edge cases, and error conditions
-2. **Fast Execution**: All tests run in < 250ms
-3. **No External Dependencies**: Tests use mocked data and don't make real API calls
-4. **Type Safety**: All tests are written in TypeScript with full type checking
+1. **Comprehensive Coverage**: Tests cover normal cases, edge cases, and error conditions
+2. **Fast Execution**: Unit tests should remain fast and deterministic
+3. **No External Dependencies**: Tests avoid real network calls
+4. **Type Safety**: All tests are TypeScript with strict type checking
 
 ## CI/CD Integration
 
@@ -86,7 +106,7 @@ Tests automatically run in GitHub Actions on:
 - Every push to main
 - Every pull request
 
-The CI workflow tests against multiple Node.js versions (18.x, 20.x, 22.x) to ensure compatibility.
+The CI workflow currently tests against Node.js versions (20.x, 22.x).
 
 ## Adding New Tests
 
@@ -94,13 +114,12 @@ When adding new functionality:
 
 1. Create or update the relevant test file
 2. Follow the existing pattern using vitest's `describe` and `it` blocks
-3. Ensure tests are isolated and don't depend on external state
+3. Keep tests isolated and independent of external state
 4. Run `npm test` to verify all tests pass
 5. Run `npm run typecheck` to ensure TypeScript types are correct
 
 ## Example Configurations
 
 See the `config/` directory for working configuration examples:
-- `minimal-opencode.json`: Simplest setup with defaults
 - `opencode-legacy.json`: Legacy complete example with all model variants
 - `opencode-modern.json`: Variant-based example for OpenCode v1.0.210+

@@ -85,46 +85,98 @@ export function deduplicateAccounts(
   return result;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function clampIndex(index: number, length: number): number {
+  if (length <= 0) return 0;
+  return Math.max(0, Math.min(index, length - 1));
+}
+
+function toAccountKey(
+  account: Pick<AccountMetadataV1, "accountId" | "refreshToken">,
+): string {
+  return account.accountId || account.refreshToken;
+}
+
+function extractActiveKey(accounts: unknown[], activeIndex: number): string | undefined {
+  const candidate = accounts[activeIndex];
+  if (!isRecord(candidate)) return undefined;
+
+  const accountId =
+    typeof candidate.accountId === "string" && candidate.accountId.trim()
+      ? candidate.accountId
+      : undefined;
+  const refreshToken =
+    typeof candidate.refreshToken === "string" && candidate.refreshToken.trim()
+      ? candidate.refreshToken
+      : undefined;
+
+  return accountId || refreshToken;
+}
+
+export function normalizeAccountStorage(data: unknown): AccountStorageV1 | null {
+  if (!isRecord(data)) {
+    log.warn("Invalid storage format, ignoring");
+    return null;
+  }
+
+  if (data.version !== 1) {
+    log.warn("Unknown storage version, ignoring", {
+      version: (data as { version?: unknown }).version,
+    });
+    return null;
+  }
+
+  const rawAccounts = data.accounts;
+  if (!Array.isArray(rawAccounts)) {
+    log.warn("Invalid storage format, ignoring");
+    return null;
+  }
+
+  const activeIndexValue =
+    typeof data.activeIndex === "number" && Number.isFinite(data.activeIndex)
+      ? data.activeIndex
+      : 0;
+
+  const rawActiveIndex = clampIndex(activeIndexValue, rawAccounts.length);
+  const activeKey = extractActiveKey(rawAccounts, rawActiveIndex);
+
+  const validAccounts = rawAccounts.filter(
+    (account): account is AccountMetadataV1 =>
+      isRecord(account) && typeof account.refreshToken === "string",
+  );
+
+  const deduplicatedAccounts = deduplicateAccounts(validAccounts);
+
+  const activeIndex = (() => {
+    if (deduplicatedAccounts.length === 0) return 0;
+
+    if (activeKey) {
+      const mappedIndex = deduplicatedAccounts.findIndex(
+        (account) => toAccountKey(account) === activeKey,
+      );
+      if (mappedIndex >= 0) return mappedIndex;
+    }
+
+    return clampIndex(rawActiveIndex, deduplicatedAccounts.length);
+  })();
+
+  return {
+    version: 1,
+    accounts: deduplicatedAccounts,
+    activeIndex,
+  };
+}
+
 export async function loadAccounts(): Promise<AccountStorageV1 | null> {
   try {
     const path = getStoragePath();
     const content = await fs.readFile(path, "utf-8");
-    const data = JSON.parse(content) as AnyAccountStorage;
+    const data = JSON.parse(content) as unknown;
 
-    if (!Array.isArray(data.accounts)) {
-      log.warn("Invalid storage format, ignoring");
-      return null;
-    }
-
-    if (data.version !== 1) {
-      log.warn("Unknown storage version, ignoring", {
-        version: (data as { version?: unknown }).version,
-      });
-      return null;
-    }
-
-    const validAccounts = data.accounts.filter(
-      (account): account is AccountMetadataV1 =>
-        !!account && typeof account.refreshToken === "string",
-    );
-
-    const deduplicatedAccounts = deduplicateAccounts(validAccounts);
-
-    let activeIndex =
-      typeof data.activeIndex === "number" && Number.isFinite(data.activeIndex)
-        ? data.activeIndex
-        : 0;
-    if (deduplicatedAccounts.length > 0) {
-      activeIndex = Math.max(0, Math.min(activeIndex, deduplicatedAccounts.length - 1));
-    } else {
-      activeIndex = 0;
-    }
-
-    return {
-      version: 1,
-      accounts: deduplicatedAccounts,
-      activeIndex,
-    };
+    return normalizeAccountStorage(data);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT") {

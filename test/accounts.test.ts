@@ -41,4 +41,85 @@ describe("AccountManager", () => {
     expect(account?.refreshToken).toBe("token-2");
     expect(manager.getMinWaitTime()).toBe(0);
   });
+
+  it("skips accounts that are cooling down", () => {
+    const now = Date.now();
+    const stored = {
+      version: 1,
+      activeIndex: 0,
+      accounts: [
+        {
+          refreshToken: "token-1",
+          addedAt: now,
+          lastUsed: now,
+          coolingDownUntil: now + 60_000,
+          cooldownReason: "auth-failure" as const,
+        },
+        {
+          refreshToken: "token-2",
+          addedAt: now,
+          lastUsed: now,
+        },
+      ],
+    };
+
+    const manager = new AccountManager(undefined, stored);
+    const account = manager.getCurrentOrNext();
+    expect(account?.refreshToken).toBe("token-2");
+    expect(manager.getActiveIndex()).toBe(1);
+  });
+
+  it("returns min wait time when all accounts are blocked", () => {
+    const now = Date.now();
+    const stored = {
+      version: 1,
+      activeIndex: 0,
+      accounts: [
+        {
+          refreshToken: "token-1",
+          addedAt: now,
+          lastUsed: now,
+          coolingDownUntil: now + 60_000,
+          cooldownReason: "network-error" as const,
+        },
+        {
+          refreshToken: "token-2",
+          addedAt: now,
+          lastUsed: now,
+          rateLimitResetTime: now + 120_000,
+        },
+      ],
+    };
+
+    const manager = new AccountManager(undefined, stored);
+    const waitMs = manager.getMinWaitTime();
+    expect(waitMs).toBeGreaterThan(0);
+    expect(waitMs).toBeLessThanOrEqual(60_000);
+  });
+
+  it("debounces account toasts for the same account index", () => {
+    const now = Date.now();
+    const stored = {
+      version: 1,
+      activeIndex: 0,
+      accounts: [
+        {
+          refreshToken: "token-1",
+          addedAt: now,
+          lastUsed: now,
+        },
+        {
+          refreshToken: "token-2",
+          addedAt: now,
+          lastUsed: now,
+        },
+      ],
+    };
+
+    const manager = new AccountManager(undefined, stored);
+    expect(manager.shouldShowAccountToast(0, 60_000)).toBe(true);
+    manager.markToastShown(0);
+    expect(manager.shouldShowAccountToast(0, 60_000)).toBe(false);
+    expect(manager.shouldShowAccountToast(1, 60_000)).toBe(true);
+  });
 });
