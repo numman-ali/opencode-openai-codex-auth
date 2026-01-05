@@ -28,7 +28,7 @@
     "url": "https://github.com/numman-ali/opencode-openai-codex-auth/issues"
   },
   "scripts": {
-    "build": "tsc && cp lib/oauth-success.html dist/lib/",
+    "build": "tsc && node scripts/copy-oauth-success.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

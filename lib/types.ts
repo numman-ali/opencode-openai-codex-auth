@@ -160,10 +160,10 @@ export interface SSEEventData {
  * Cache metadata for Codex instructions
  */
 export interface CacheMetadata {
-	etag: string | null;
-	tag: string;
-	lastChecked: number;
-	url: string;
+        etag: string | null;
+        tag: string;
+        lastChecked: number;
+        url: string;
 }
 
 /**
@@ -176,3 +176,5 @@ export interface GitHubRelease {
 
 // Re-export SDK types for convenience
 export type { Auth, Provider, Model };
+
+export type OAuthAuthDetails = Extract<Auth, { type: "oauth" }>;

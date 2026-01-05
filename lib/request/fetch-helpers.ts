@@ -12,14 +12,24 @@ import { transformRequestBody, normalizeModel } from "./request-transformer.js";
 import { convertSseToJson, ensureContentType } from "./response-handler.js";
 import type { UserConfig, RequestBody } from "../types.js";
 import {
-	PLUGIN_NAME,
-	HTTP_STATUS,
-	OPENAI_HEADERS,
-	OPENAI_HEADER_VALUES,
-	URL_PATHS,
-	ERROR_MESSAGES,
-	LOG_STAGES,
+        PLUGIN_NAME,
+        HTTP_STATUS,
+        OPENAI_HEADERS,
+        OPENAI_HEADER_VALUES,
+        URL_PATHS,
+        ERROR_MESSAGES,
+        LOG_STAGES,
 } from "../constants.js";
+
+export interface RateLimitInfo {
+        retryAfterMs: number;
+        code?: string;
+}
+
+export interface ErrorHandlingResult {
+        response: Response;
+        rateLimit?: RateLimitInfo;
+}
 
 /**
  * Determines if the current auth token needs to be refreshed
@@ -201,17 +211,18 @@ export function createCodexHeaders(
  * @returns Original response or mapped retryable response
  */
 export async function handleErrorResponse(
-    response: Response,
-): Promise<Response> {
-	const mapped = await mapUsageLimit404(response);
-	const finalResponse = mapped ?? response;
+        response: Response,
+): Promise<ErrorHandlingResult> {
+        const mapped = await mapUsageLimit404(response);
+        const finalResponse = mapped ?? response;
+        const rateLimit = await extractRateLimitInfo(finalResponse);
 
-	logRequest(LOG_STAGES.ERROR_RESPONSE, {
-		status: finalResponse.status,
-		statusText: finalResponse.statusText,
-	});
+        logRequest(LOG_STAGES.ERROR_RESPONSE, {
+                status: finalResponse.status,
+                statusText: finalResponse.statusText,
+        });
 
-	return finalResponse;
+        return { response: finalResponse, rateLimit };
 }
 
 /**
@@ -242,7 +253,7 @@ export async function handleSuccessResponse(
 }
 
 async function mapUsageLimit404(response: Response): Promise<Response | null> {
-	if (response.status !== HTTP_STATUS.NOT_FOUND) return null;
+        if (response.status !== HTTP_STATUS.NOT_FOUND) return null;
 
 	const clone = response.clone();
 	let text = "";
@@ -266,10 +277,129 @@ async function mapUsageLimit404(response: Response): Promise<Response | null> {
 		return null;
 	}
 
-	const headers = new Headers(response.headers);
-	return new Response(response.body, {
-		status: HTTP_STATUS.TOO_MANY_REQUESTS,
-		statusText: "Too Many Requests",
-		headers,
-	});
+        const headers = new Headers(response.headers);
+        return new Response(response.body, {
+                status: HTTP_STATUS.TOO_MANY_REQUESTS,
+                statusText: "Too Many Requests",
+                headers,
+        });
+}
+
+async function extractRateLimitInfo(
+        response: Response,
+): Promise<RateLimitInfo | undefined> {
+        const isStatusRateLimit =
+                response.status === HTTP_STATUS.TOO_MANY_REQUESTS;
+        const body = await safeReadBody(response);
+        const parsed = parseRateLimitBody(body);
+
+        const haystack = `${parsed?.code ?? ""} ${body}`.toLowerCase();
+        const isRateLimit =
+                isStatusRateLimit ||
+                /usage_limit_reached|usage_not_included|rate_limit_exceeded|rate_limit/i.test(
+                        haystack,
+                );
+        if (!isRateLimit) return undefined;
+
+        const retryAfterMs =
+                parseRetryAfterMs(response, parsed) ?? 60000;
+
+        return { retryAfterMs, code: parsed?.code };
+}
+
+async function safeReadBody(response: Response): Promise<string> {
+        try {
+                return await response.clone().text();
+        } catch {
+                return "";
+        }
+}
+
+function parseRateLimitBody(
+        body: string,
+): { code?: string; resetsAt?: number; retryAfterMs?: number } | undefined {
+        if (!body) return undefined;
+        try {
+                const parsed = JSON.parse(body) as any;
+                const error = parsed?.error ?? {};
+                const code = (error.code ?? error.type ?? "").toString();
+                const resetsAt = toNumber(error.resets_at ?? error.reset_at);
+                const retryAfterMs = toNumber(error.retry_after_ms ?? error.retry_after);
+                return { code, resetsAt, retryAfterMs };
+        } catch {
+                return undefined;
+        }
+}
+
+function parseRetryAfterMs(
+        response: Response,
+        parsedBody?: { resetsAt?: number; retryAfterMs?: number },
+): number | null {
+        if (parsedBody?.retryAfterMs !== undefined) {
+                return normalizeRetryAfter(parsedBody.retryAfterMs);
+        }
+
+        const retryAfterMsHeader = response.headers.get("retry-after-ms");
+        if (retryAfterMsHeader) {
+                const parsed = Number.parseInt(retryAfterMsHeader, 10);
+                if (!Number.isNaN(parsed) && parsed > 0) {
+                        return parsed;
+                }
+        }
+
+        const retryAfterHeader = response.headers.get("retry-after");
+        if (retryAfterHeader) {
+                const parsed = Number.parseInt(retryAfterHeader, 10);
+                if (!Number.isNaN(parsed) && parsed > 0) {
+                        return parsed * 1000;
+                }
+        }
+
+        const resetAtHeaders = [
+                "x-codex-primary-reset-at",
+                "x-codex-secondary-reset-at",
+                "x-ratelimit-reset",
+        ];
+        const now = Date.now();
+        const resetCandidates: number[] = [];
+        for (const header of resetAtHeaders) {
+                const value = response.headers.get(header);
+                if (!value) continue;
+                const parsed = Number.parseInt(value, 10);
+                if (!Number.isNaN(parsed) && parsed > 0) {
+                        const timestamp =
+                                parsed < 10_000_000_000 ? parsed * 1000 : parsed;
+                        const delta = timestamp - now;
+                        if (delta > 0) resetCandidates.push(delta);
+                }
+        }
+
+        if (parsedBody?.resetsAt) {
+                const timestamp =
+                        parsedBody.resetsAt < 10_000_000_000
+                                ? parsedBody.resetsAt * 1000
+                                : parsedBody.resetsAt;
+                const delta = timestamp - now;
+                if (delta > 0) resetCandidates.push(delta);
+        }
+
+        if (resetCandidates.length > 0) {
+                return Math.min(...resetCandidates);
+        }
+
+        return null;
+}
+
+function normalizeRetryAfter(value: number): number {
+        if (!Number.isFinite(value)) return 60000;
+        if (value > 0 && value < 1000) {
+                return Math.floor(value * 1000);
+        }
+        return Math.floor(value);
+}
+
+function toNumber(value: unknown): number | undefined {
+        if (value === null || value === undefined) return undefined;
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
 }

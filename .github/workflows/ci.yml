@@ -38,7 +38,8 @@ jobs:
         run: npm run build
 
   lint:
-    name: Lint and Format Check
+    name: Type Check
+
     runs-on: ubuntu-latest
 
     steps:

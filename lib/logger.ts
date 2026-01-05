@@ -79,10 +79,39 @@ export function logDebug(message: string, data?: unknown): void {
  * @param data - Optional data to log
  */
 export function logWarn(message: string, data?: unknown): void {
-	if (!DEBUG_ENABLED && !LOGGING_ENABLED) return;
-	if (data !== undefined) {
-		console.warn(`[${PLUGIN_NAME}] ${message}`, data);
-	} else {
-		console.warn(`[${PLUGIN_NAME}] ${message}`);
-	}
+        if (!DEBUG_ENABLED && !LOGGING_ENABLED) return;
+        if (data !== undefined) {
+                console.warn(`[${PLUGIN_NAME}] ${message}`, data);
+        } else {
+                console.warn(`[${PLUGIN_NAME}] ${message}`);
+        }
+}
+
+export function createLogger(scope: string) {
+        const prefix = `[${PLUGIN_NAME}:${scope}]`;
+        return {
+                info(message: string, data?: unknown) {
+                        if (!DEBUG_ENABLED && !LOGGING_ENABLED) return;
+                        if (data !== undefined) {
+                                console.log(`${prefix} ${message}`, data);
+                        } else {
+                                console.log(`${prefix} ${message}`);
+                        }
+                },
+                warn(message: string, data?: unknown) {
+                        if (!DEBUG_ENABLED && !LOGGING_ENABLED) return;
+                        if (data !== undefined) {
+                                console.warn(`${prefix} ${message}`, data);
+                        } else {
+                                console.warn(`${prefix} ${message}`);
+                        }
+                },
+                error(message: string, data?: unknown) {
+                        if (data !== undefined) {
+                                console.error(`${prefix} ${message}`, data);
+                        } else {
+                                console.error(`${prefix} ${message}`);
+                        }
+                },
+        };
 }

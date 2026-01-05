@@ -1,7 +1,11 @@
-import { logRequest, LOGGING_ENABLED } from "../logger.js";
+import { createLogger, logRequest, LOGGING_ENABLED } from "../logger.js";
+
 import type { SSEEventData } from "../types.js";
 
+const log = createLogger("response-handler");
+
 /**
+
  * Parse SSE stream to extract final response
  * @param sseText - Complete SSE stream text
  * @returns Final response object or null if not found
@@ -57,7 +61,8 @@ export async function convertSseToJson(response: Response, headers: Headers): Pr
 		const finalResponse = parseSseStream(fullText);
 
 		if (!finalResponse) {
-			console.error('[openai-codex-plugin] Could not find final response in SSE stream');
+			log.warn("Could not find final response in SSE stream");
+
 			logRequest("stream-error", { error: "No response.done event found" });
 
 			// Return original stream if we can't parse
@@ -79,10 +84,11 @@ export async function convertSseToJson(response: Response, headers: Headers): Pr
 		});
 
 	} catch (error) {
-		console.error('[openai-codex-plugin] Error converting stream:', error);
+		log.error("Error converting stream", { error: String(error) });
 		logRequest("stream-error", { error: String(error) });
 		throw error;
 	}
+
 }
 
 /**

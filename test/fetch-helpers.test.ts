@@ -135,28 +135,30 @@ describe('Fetch Helpers Module', () => {
 	    expect(headers.get('accept')).toBe('text/event-stream');
     });
 
-		it('maps usage-limit 404 errors to 429', async () => {
-			const body = {
-				error: {
-					code: 'usage_limit_reached',
-					message: 'limit reached',
-				},
-			};
-			const resp = new Response(JSON.stringify(body), { status: 404 });
-			const mapped = await handleErrorResponse(resp);
-			expect(mapped.status).toBe(429);
-			const json = await mapped.json() as any;
-			expect(json.error.code).toBe('usage_limit_reached');
-		});
+                it('maps usage-limit 404 errors to 429', async () => {
+                        const body = {
+                                error: {
+                                        code: 'usage_limit_reached',
+                                        message: 'limit reached',
+                                },
+                        };
+                        const resp = new Response(JSON.stringify(body), { status: 404 });
+                        const { response: mapped, rateLimit } = await handleErrorResponse(resp);
+                        expect(mapped.status).toBe(429);
+                        const json = await mapped.json() as any;
+                        expect(json.error.code).toBe('usage_limit_reached');
+                        expect(rateLimit?.retryAfterMs).toBeGreaterThan(0);
+                });
 
-		it('leaves non-usage 404 errors unchanged', async () => {
-			const body = { error: { code: 'not_found', message: 'nope' } };
-			const resp = new Response(JSON.stringify(body), { status: 404 });
-			const result = await handleErrorResponse(resp);
-			expect(result.status).toBe(404);
-			const json = await result.json() as any;
-			expect(json.error.code).toBe('not_found');
-		});
+                it('leaves non-usage 404 errors unchanged', async () => {
+                        const body = { error: { code: 'not_found', message: 'nope' } };
+                        const resp = new Response(JSON.stringify(body), { status: 404 });
+                        const { response: result, rateLimit } = await handleErrorResponse(resp);
+                        expect(result.status).toBe(404);
+                        const json = await result.json() as any;
+                        expect(json.error.code).toBe('not_found');
+                        expect(rateLimit).toBeUndefined();
+                });
 
 		it('should remove x-api-key header', () => {
         const init = { headers: { 'x-api-key': 'should-be-removed' } } as any;
