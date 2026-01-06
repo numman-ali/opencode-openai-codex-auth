@@ -79,3 +79,6 @@ export const AUTH_LABELS = {
 	INSTRUCTIONS_MANUAL:
 		"After logging in, copy the full redirect URL and paste it here.",
 } as const;
+
+/** Multi-account configuration */
+export const MAX_ACCOUNTS = 10;
