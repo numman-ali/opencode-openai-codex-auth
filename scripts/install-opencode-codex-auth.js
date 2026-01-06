@@ -183,8 +183,11 @@ async function removePluginFromConfig(filePath) {
 	let configData;
 	try {
 		const content = await readFile(filePath, "utf-8");
-		// Handle JSONC (strip comments for parsing)
-		const jsonContent = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+		// Handle JSONC: strip comments but preserve // in strings (URLs, etc.)
+		// Only strip // comments that are outside of quoted strings
+		const jsonContent = content
+			.replace(/("(?:[^"\\]|\\.)*")|\/\/.*$/gm, (match, quoted) => quoted || "")
+			.replace(/("(?:[^"\\]|\\.)*")|\/\*[\s\S]*?\*\//g, (match, quoted) => quoted || "");
 		configData = JSON.parse(jsonContent);
 	} catch (error) {
 		log(`Warning: Could not parse ${filePath} (${error}). Skipping.`);
