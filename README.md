@@ -37,6 +37,17 @@ npx -y opencode-openai-codex-auth@latest --legacy
 opencode run "write hello world to test.txt" --model=openai/gpt-5.2-medium
 ```
 ---
+## 🗑️ Uninstall
+Quick uninstall (removes plugin from config and clears cache):
+```bash
+npx -y opencode-openai-codex-auth@latest --uninstall
+```
+Complete removal (also removes OAuth tokens, plugin config, logs, and cache):
+```bash
+npx -y opencode-openai-codex-auth@latest --uninstall --all
+```
+Use `--dry-run` to preview what would be removed without making changes.
+---
 ## 📦 Models
 - **gpt-5.2** (none/low/medium/high/xhigh)
 - **gpt-5.2-codex** (low/medium/high/xhigh)
