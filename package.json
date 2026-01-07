@@ -62,7 +62,8 @@
   },
   "dependencies": {
     "@openauthjs/openauth": "^0.4.3",
-    "hono": "^4.10.4"
+    "hono": "^4.10.4",
+    "jsonc-parser": "^3.3.1"
   },
   "overrides": {
     "hono": "^4.10.4",

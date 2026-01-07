@@ -5,6 +5,7 @@ import { readFile, writeFile, mkdir, copyFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
+import { parse, modify, applyEdits } from 'jsonc-parser';
 
 const PLUGIN_NAME = "opencode-openai-codex-auth";
 const args = new Set(process.argv.slice(2));
@@ -39,7 +40,8 @@ const templatePath = join(
 );
 
 const configDir = join(homedir(), ".config", "opencode");
-const configPath = join(configDir, "opencode.json");
+const configJsonPath = join(configDir, "opencode.json");
+const configJsoncPath = join(configDir, "opencode.jsonc");
 const cacheDir = join(homedir(), ".cache", "opencode");
 const cacheNodeModules = join(cacheDir, "node_modules", PLUGIN_NAME);
 const cacheBunLock = join(cacheDir, "bun.lock");
@@ -60,6 +62,86 @@ function normalizePluginList(list) {
 
 function formatJson(obj) {
 	return `${JSON.stringify(obj, null, 2)}\n`;
+}
+
+/**
+ * Determines the config file path and format
+ * Priority: .jsonc > .json > (create new .json)
+ * @returns {Object} { path, isJsonc, exists }
+ */
+function getConfigPath() {
+	if (existsSync(configJsoncPath)) {
+		return { path: configJsoncPath, isJsonc: true, exists: true };
+	}
+	if (existsSync(configJsonPath)) {
+		return { path: configJsonPath, isJsonc: false, exists: true };
+	}
+	return { path: configJsonPath, isJsonc: false, exists: false };
+}
+
+/**
+ * Reads config file (JSON or JSONC)
+ * Uses jsonc-parser.parse which supports both formats
+ * @param {string} filePath - Config file path
+ * @returns {Promise<Object>} Parsed config object
+ */
+async function readConfig(filePath) {
+	const content = await readFile(filePath, "utf-8");
+	return parse(content);
+}
+
+/**
+ * Deep merge objects
+ * @param {Object} target - Target object
+ * @param {Object} source - Source object
+ * @returns {Object} Merged object
+ */
+function deepMerge(target, source) {
+	const output = { ...target };
+	if (isObject(target) && isObject(source)) {
+		Object.keys(source).forEach(key => {
+			if (isObject(source[key])) {
+				if (!(key in target)) {
+					Object.assign(output, { [key]: source[key] });
+				} else {
+					output[key] = deepMerge(target[key], source[key]);
+				}
+			} else {
+				Object.assign(output, { [key]: source[key] });
+			}
+		});
+	}
+	return output;
+}
+
+function isObject(item) {
+	return item && typeof item === 'object' && !Array.isArray(item);
+}
+
+/**
+ * Writes config preserving comments and formatting
+ * Uses jsonc-parser.modify + applyEdits to preserve structure
+ * @param {string} filePath - Config file path
+ * @param {string} originalContent - Original content (if exists)
+ * @param {Object} config - Config to write
+ * @param {boolean} isJsonc - Whether file is JSONC
+ * @returns {Promise<void>}
+ */
+async function writeConfig(filePath, originalContent, config, isJsonc) {
+	if (isJsonc && originalContent) {
+		const formattingOptions = {
+			tabSize: 2,
+			insertSpaces: true,
+			eol: '\n',
+		};
+		
+		const edits = modify(originalContent, [], config, { formattingOptions });
+		const result = applyEdits(originalContent, edits);
+		await writeFile(filePath, result, "utf-8");
+	} else {
+		const formatted = formatJson(config);
+		await writeFile(filePath, formatted, "utf-8");
+	}
 }
 
 async function readJson(filePath) {
@@ -146,40 +228,52 @@ async function main() {
 	const template = await readJson(templatePath);
 	template.plugin = [PLUGIN_NAME];
 
+	const { path: configPath, isJsonc, exists: configExists } = getConfigPath();
+	
+	let originalContent = null;
+	if (configExists) {
+		originalContent = await readFile(configPath, "utf-8");
+	}
+
 	let nextConfig = template;
-	if (existsSync(configPath)) {
+	if (configExists) {
 		const backupPath = await backupConfig(configPath);
 		log(`${dryRun ? "[dry-run] Would create backup" : "Backup created"}: ${backupPath}`);
 
 		try {
-			const existing = await readJson(configPath);
+			const existing = await readConfig(configPath);
 			const merged = { ...existing };
 			merged.plugin = normalizePluginList(existing.plugin);
-			const provider = (existing.provider && typeof existing.provider === "object")
-				? { ...existing.provider }
-				: {};
-			provider.openai = template.provider.openai;
+			
+			const provider = deepMerge(
+				existing.provider || {},
+				{ openai: template.provider.openai }
+			);
 			merged.provider = provider;
+			
 			nextConfig = merged;
 		} catch (error) {
 			log(`Warning: Could not parse existing config (${error}). Replacing with template.`);
 			nextConfig = template;
 		}
 	} else {
-		log("No existing config found. Creating new global config.");
+		const formatType = isJsonc ? "JSONC" : "JSON";
+		log(`No existing config found. Creating new global config (${formatType}).`);
 	}
 
 	if (dryRun) {
 		log(`[dry-run] Would write ${configPath} using ${useLegacy ? "legacy" : "modern"} config`);
 	} else {
 		await mkdir(configDir, { recursive: true });
-		await writeFile(configPath, formatJson(nextConfig), "utf-8");
-		log(`Wrote ${configPath} (${useLegacy ? "legacy" : "modern"} config)`);
+		await writeConfig(configPath, originalContent, nextConfig, isJsonc);
+		
+		const formatInfo = configExists ? `(existing ${isJsonc ? "JSONC" : "JSON"} preserved)` : `(new ${isJsonc ? "JSONC" : "JSON"})`;
+		log(`Wrote ${configPath} (${useLegacy ? "legacy" : "modern"} config ${formatInfo})`);
 	}
 
 	await clearCache();
 
-	log("\nDone. Restart OpenCode to (re)install the plugin.");
+	log("\nDone. Restart OpenCode to (re)install plugin.");
 	log("Example: opencode");
 	if (useLegacy) {
 		log("Note: Legacy config requires OpenCode v1.0.209 or older.");
