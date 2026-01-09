@@ -174,5 +174,75 @@ export interface GitHubRelease {
 	[key: string]: unknown;
 }
 
+// ============================================================================
+// Multi-Account Support Types
+// ============================================================================
+
+/**
+ * Rate limit state tracking reset times per account
+ */
+export interface RateLimitState {
+	resetTime?: number;
+}
+
+/**
+ * Stored account metadata
+ */
+export interface AccountMetadata {
+	refreshToken: string;
+	chatgptAccountId: string;
+	email?: string;
+	addedAt: number;
+	lastUsed: number;
+	lastSwitchReason?: "rate-limit" | "initial" | "rotation";
+	rateLimitResetTime?: number;
+}
+
+/**
+ * Account storage structure (persisted to disk)
+ */
+export interface AccountStorage {
+	version: 1;
+	accounts: AccountMetadata[];
+	activeIndex: number;
+}
+
+/**
+ * Managed account in memory with runtime state
+ */
+export interface ManagedAccount {
+	index: number;
+	refreshToken: string;
+	chatgptAccountId: string;
+	accessToken?: string;
+	expiresAt?: number;
+	rateLimitResetTime?: number;
+	lastUsed: number;
+	email?: string;
+	lastSwitchReason?: "rate-limit" | "initial" | "rotation";
+}
+
+/**
+ * Multi-account refresh token format
+ * Multiple accounts separated by ||
+ * Each account: refreshToken|chatgptAccountId
+ */
+export interface MultiAccountRefresh {
+	accounts: Array<{
+		refreshToken: string;
+		chatgptAccountId: string;
+	}>;
+}
+
+/**
+ * OAuth auth details with type guard
+ */
+export interface OAuthAuthDetails {
+	type: "oauth";
+	access: string;
+	refresh: string;
+	expires: number;
+}
+
 // Re-export SDK types for convenience
 export type { Auth, Provider, Model };

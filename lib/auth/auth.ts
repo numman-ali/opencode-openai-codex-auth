@@ -1,6 +1,27 @@
 import { generatePKCE } from "@openauthjs/openauth/pkce";
 import { randomBytes } from "node:crypto";
-import type { PKCEPair, AuthorizationFlow, TokenResult, ParsedAuthInput, JWTPayload } from "../types.js";
+import type {
+	PKCEPair,
+	AuthorizationFlow,
+	TokenResult,
+	ParsedAuthInput,
+	JWTPayload,
+	OAuthAuthDetails,
+	Auth,
+} from "../types.js";
+
+const ACCESS_TOKEN_EXPIRY_BUFFER_MS = 60 * 1000;
+
+export function isOAuthAuth(auth: Auth): auth is OAuthAuthDetails {
+	return auth.type === "oauth";
+}
+
+export function accessTokenExpired(auth: OAuthAuthDetails): boolean {
+	if (!auth.access || typeof auth.expires !== "number") {
+		return true;
+	}
+	return auth.expires <= Date.now() + ACCESS_TOKEN_EXPIRY_BUFFER_MS;
+}
 
 // OAuth constants (from openai/codex)
 export const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";

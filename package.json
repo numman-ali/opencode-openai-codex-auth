@@ -36,7 +36,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "bin": {
-    "opencode-openai-codex-auth": "./scripts/install-opencode-codex-auth.js"
+    "opencode-openai-codex-auth": "./scripts/install-opencode-codex-auth.js",
+    "codex-accounts": "./scripts/manage-accounts.js"
   },
   "files": [
     "dist/",
