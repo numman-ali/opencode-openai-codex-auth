@@ -61,7 +61,7 @@ data: {"type":"response.completed","response":{"id":"resp_456","output":"done"}}
 			expect(body).toEqual({ id: 'resp_456', output: 'done' });
 		});
 
-		it('should return original text if no final response found', async () => {
+		it('should return last JSON event if no final response found', async () => {
 			const sseContent = `data: {"type":"response.started"}
 data: {"type":"chunk","delta":"text"}
 `;
@@ -69,9 +69,10 @@ data: {"type":"chunk","delta":"text"}
 			const headers = new Headers();
 
 			const result = await convertSseToJson(response, headers);
-			const text = await result.text();
+			const body = await result.json();
 
-			expect(text).toBe(sseContent);
+			// Falls back to last event when no response.done/response.completed
+			expect(body).toEqual({ type: 'chunk', delta: 'text' });
 		});
 
 		it('should skip malformed JSON in SSE stream', async () => {
@@ -109,6 +110,30 @@ data: {"type":"response.done","response":{"id":"resp_789"}}
 
 			expect(result.status).toBe(200);
 			expect(result.statusText).toBe('OK');
+		});
+
+		it('should parse data lines without a space after colon', async () => {
+			const sseContent = `data:{"type":"response.done","response":{"id":"resp_999","output":"ok"}}`;
+			const response = new Response(sseContent);
+			const headers = new Headers();
+
+			const result = await convertSseToJson(response, headers);
+			const body = await result.json();
+
+			expect(body).toEqual({ id: 'resp_999', output: 'ok' });
+		});
+
+		it('should join multiline data fields into a single JSON event', async () => {
+			const sseContent = `data: {"type":"response.done",
+data: "response":{"id":"resp_abc","output":"test"}}
+`;
+			const response = new Response(sseContent);
+			const headers = new Headers();
+
+			const result = await convertSseToJson(response, headers);
+			const body = await result.json();
+
+			expect(body).toEqual({ id: 'resp_abc', output: 'test' });
 		});
 	});
 });
